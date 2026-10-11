@@ -1,0 +1,1624 @@
+<title>libgears Test Range</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: a third-person view of a night test range fills the stage; one instrument
+   rail on the right (below on phones) carries the move, speed against Gears' real
+   speed marks, both sticks, the camera mode Gears would use, a map and the move log.
+   Single dark look by choice: a floodlit range at night. */
+:root {
+  color-scheme: dark;
+  --floor: #14171b;        /* concrete in shadow */
+  --rail: #1b1f24;
+  --rail-line: #2c333b;
+  --ink: #e6e1d6;          /* chalk */
+  --ink-dim: #9a968c;
+  --wall: #7b8088;         /* cast concrete */
+  --cover-edge: #e9b44c;   /* range paint, amber */
+  --hot: #ef7d4a;          /* slide / slip / evade */
+  --cool: #6fb4c8;         /* walking */
+  --good: #8fbf6a;         /* in cover */
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+html, body { height: 100%; }
+body { background: var(--floor); color: var(--ink); font-family: var(--font-body); margin: 0; overflow: hidden; }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 300px; height: 100%; }
+.stage { position: relative; min-width: 0; overflow: hidden; background: var(--floor); }
+#view { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+.badge { position: absolute; left: 16px; top: 14px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+.badge h1 { margin: 0; font: 700 26px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+.badge p { margin: 0; font-size: 12px; color: var(--ink-dim); max-width: 46ch; }
+.levels { position: absolute; left: 16px; bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 32px); }
+button {
+  font: 500 13px var(--font-body); color: var(--ink); background: var(--rail);
+  border: 1px solid var(--rail-line); border-radius: 3px; padding: 7px 11px; cursor: pointer;
+}
+button:hover { border-color: var(--ink-dim); }
+button:focus-visible { outline: 2px solid var(--cover-edge); outline-offset: 2px; }
+button[aria-pressed="true"] { border-color: var(--cover-edge); color: var(--cover-edge); }
+.hint {
+  position: absolute; left: 50%; top: 18%; transform: translateX(-50%);
+  font: 500 13px var(--font-body); color: var(--ink); background: color-mix(in srgb, var(--rail) 82%, transparent);
+  border: 1px solid var(--rail-line); border-radius: 3px; padding: 9px 14px; pointer-events: none; text-align: center;
+}
+.hint small { display: block; color: var(--ink-dim); font-size: 12px; margin-top: 2px; }
+.wpn { position: absolute; right: 16px; bottom: 16px; pointer-events: none; text-align: right; font: 500 13px var(--font-mono); color: var(--ink); background: color-mix(in srgb, var(--floor) 78%, transparent); padding: 8px 10px; border-radius: 2px; min-width: 150px; }
+.wpn b { display: block; font: 700 20px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+.wpn .ammo { font-variant-numeric: tabular-nums; font-size: 18px; }
+.wpn .bar { height: 3px; background: var(--rail-line); margin-top: 5px; }
+.wpn .bar { position: relative; height: 6px; }
+.wpn .bar i { display: block; height: 100%; width: 0; background: var(--cover-edge); }
+.wpn .bar span, .wpn .bar em { position: absolute; top: 0; height: 100%; display: none; }
+.wpn .bar #ar-good { background: color-mix(in srgb, var(--ink) 55%, transparent); }
+.wpn .bar #ar-perfect { background: var(--ink); }
+.wpn .bar em { width: 2px; top: -3px; height: 12px; background: var(--hot); }
+.wpn #ar-msg { display: block; min-height: 16px; font: 700 13px var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--cover-edge); }
+.wpn.bonus .ammo { color: var(--cover-edge); }
+.xhair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: none; opacity: .55; }
+.xhair::before, .xhair::after { content: ""; position: absolute; background: var(--ink); }
+.xhair::before { left: 10px; top: 0; width: 2px; height: 22px; } .xhair::after { top: 10px; left: 0; height: 2px; width: 22px; }
+.xhair.aim { opacity: 1; } .xhair.hit::before, .xhair.hit::after { background: var(--hot); }
+.dmg { position: absolute; pointer-events: none; font: 700 15px var(--font-mono); color: var(--hot); transform: translate(-50%, -100%); text-shadow: 0 1px 2px #000; }
+.hp { position: absolute; pointer-events: none; width: 46px; height: 4px; margin-left: -23px; background: var(--rail-line); }
+.hp i { display: block; height: 100%; background: var(--good); }
+.tag {
+  position: absolute; pointer-events: none; font: 500 13px var(--font-mono); color: var(--hot);
+  transform: translate(14px, -50%); white-space: nowrap; padding: 3px 7px; border-radius: 2px;
+  background: color-mix(in srgb, var(--floor) 78%, transparent); font-variant-numeric: tabular-nums;
+}
+.tag.dim { color: var(--ink-dim); }
+
+.rail {
+  background: var(--rail); border-left: 1px solid var(--rail-line);
+  display: flex; flex-direction: column; gap: 16px; padding: 16px; overflow-y: auto; min-width: 0;
+}
+.label { font: 600 11px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); margin: 0 0 6px; }
+.state { font: 700 36px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.state small { font: 400 12px var(--font-mono); color: var(--ink-dim); text-transform: none; letter-spacing: 0; }
+.reason { font: 400 12px var(--font-mono); color: var(--ink-dim); margin-top: 6px; min-height: 1.4em; }
+.speed-read { display: flex; align-items: baseline; gap: 6px; }
+.speed-read b { font: 700 28px var(--font-display); font-variant-numeric: tabular-nums; }
+.speed-read span { font: 400 12px var(--font-mono); color: var(--ink-dim); }
+.scale { position: relative; height: 34px; margin-top: 16px; }
+.scale .track { position: absolute; left: 0; right: 0; top: 8px; height: 6px; background: var(--floor); border-radius: 1px; }
+.scale .fill { position: absolute; left: 0; top: 8px; height: 6px; background: var(--cool); width: 0; border-radius: 1px; }
+.scale .tick { position: absolute; top: 4px; width: 1px; height: 14px; background: var(--ink-dim); }
+.scale .tick.up i { top: -15px; }
+.scale .tick i { position: absolute; top: 15px; transform: translateX(-50%); font: 400 10px var(--font-mono); font-style: normal; color: var(--ink-dim); white-space: nowrap; }
+
+.inputs { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.pad { display: flex; flex-direction: column; align-items: center; gap: 4px; font: 400 10px var(--font-mono); color: var(--ink-dim); }
+.stickpad { width: 54px; height: 54px; border: 1px solid var(--rail-line); border-radius: 50%; position: relative; }
+.stickpad .dz { position: absolute; inset: 40%; border-radius: 50%; border: 1px dashed var(--rail-line); }
+.stickpad .dot { position: absolute; width: 9px; height: 9px; margin: -4.5px; border-radius: 50%; background: var(--ink); left: 50%; top: 50%; }
+.abtn { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 700 15px var(--font-display); border: 2px solid var(--good); color: var(--good); }
+.abtn.on { background: var(--good); color: var(--rail); }
+.src { font: 400 12px var(--font-mono); color: var(--ink-dim); }
+
+.cam { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; font: 400 12px var(--font-mono); font-variant-numeric: tabular-nums; }
+.cam dt { color: var(--ink-dim); }
+.cam dd { margin: 0; color: var(--ink); }
+#map { display: block; width: 100%; height: 170px; background: var(--floor); border: 1px solid var(--rail-line); border-radius: 2px; }
+
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font: 400 11.5px/1.35 var(--font-mono); font-variant-numeric: tabular-nums; }
+.log li { display: grid; grid-template-columns: 50px 1fr; gap: 8px; color: var(--ink-dim); }
+.log li b { font-weight: 500; color: var(--ink); }
+.log li:first-child b { color: var(--cover-edge); }
+.keys { font-size: 12.5px; color: var(--ink-dim); display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; }
+.keys dt { font: 500 12px var(--font-mono); color: var(--ink); }
+.keys dd { margin: 0; }
+.note { font-size: 12px; color: var(--ink-dim); line-height: 1.45; margin: 0; }
+.note code { font: 400 11.5px var(--font-mono); color: var(--ink); }
+.filebtn {
+  display: inline-block; font: 500 13px var(--font-body); color: var(--rail); background: var(--cover-edge);
+  border-radius: 3px; padding: 7px 11px; cursor: pointer; margin: 8px 0;
+}
+.filebtn:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
+.mf-status { font: 400 12px var(--font-mono); color: var(--ink); margin: 0; }
+.mf-status.ok { color: var(--good); }
+.mf-status.bad { color: var(--hot); }
+.stage.drop::after {
+  content: "Drop marcus.glb and lancer.glb"; position: absolute; inset: 12px; border: 2px dashed var(--cover-edge);
+  display: grid; place-items: center; font: 600 18px var(--font-display); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--cover-edge); background: color-mix(in srgb, var(--floor) 70%, transparent); pointer-events: none;
+}
+
+.touch { position: absolute; inset: 0; pointer-events: none; }
+.tstick, .ta { position: absolute; pointer-events: auto; border-radius: 50%; border: 1px solid var(--rail-line); background: color-mix(in srgb, var(--rail) 70%, transparent); }
+.tstick { left: 20px; bottom: 72px; width: 120px; height: 120px; }
+.ta { right: 24px; bottom: 90px; width: 84px; height: 84px; display: grid; place-items: center; font: 700 28px var(--font-display); color: var(--good); border-color: var(--good); }
+.ta.on { background: var(--good); color: var(--rail); }
+
+@media (max-width: 760px) {
+  body { overflow: auto; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 64vh auto; height: auto; }
+  .stage { height: 64vh; }
+  .rail { border-left: 0; border-top: 1px solid var(--rail-line); }
+  .levels { bottom: auto; top: 64px; }
+  .hint { top: auto; bottom: 16px; }
+  .badge p { display: none; }
+}
+</style>
+
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="view" tabindex="0" aria-label="Third-person test range. The character moves with Gears of War 3 movement rules and the camera uses Gears 3's camera settings."></canvas>
+    <div class="badge">
+      <h1>libgears test range</h1>
+      <p>Gears of War 3 movement and camera rules, running live. Floor squares are 100 uu; the soldier is 156 uu tall.</p>
+    </div>
+    <div class="tag" id="reach-tag" hidden></div>
+    <div class="xhair" id="xhair"></div>
+    <div class="wpn" id="wpn"><b id="wpn-name">Lancer</b><span class="ammo" id="wpn-ammo">60 / 360</span><div class="bar"><span id="ar-good"></span><span id="ar-perfect"></span><i id="wpn-bar"></i><em id="ar-mark"></em></div><span id="ar-msg"></span></div>
+    <div id="fx-layer"></div>
+    <div class="hint" id="hint">Click the view to look with the mouse<small>Esc releases it. A controller works without clicking.</small></div>
+    <div class="levels" role="group" aria-label="Range layout">
+      <button id="lv-lane" aria-pressed="true">Bounce lane</button>
+      <button id="lv-edges" aria-pressed="false">Short walls</button>
+      <button id="lv-yard" aria-pressed="false">Open yard</button>
+      <button id="btn-reach" aria-pressed="true">Show cover reach</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+    <div class="touch" id="touch" hidden>
+      <div class="tstick" id="tstick"></div>
+      <div class="ta" id="ta">A</div>
+    </div>
+  </div>
+
+  <aside class="rail" aria-label="Instruments">
+    <section>
+      <p class="label">Move</p>
+      <div class="state"><span id="st-name">Walk</span><small id="st-time">0.00 s</small></div>
+      <div class="reason" id="st-reason">Tap A toward a wall to slide into cover.</div>
+    </section>
+
+    <section>
+      <p class="label">Marcus</p>
+      <p class="mf-status" id="mf-status">Stand-in figure</p>
+      <label class="filebtn">Load your Marcus export<input type="file" id="mf-file" accept=".glb,.json" multiple hidden></label>
+      <p class="note">Pick <code>marcus.glb</code> (and <code>lancer.glb</code>) from <code>_local/exports/marcus/pack</code>, made from your own Gears 3 dump with <code>tools/gears_anim_pack.py</code>. Your browser reads them; they never leave your computer.</p>
+    </section>
+
+    <section>
+      <p class="label">Ground speed</p>
+      <div class="speed-read"><b id="spd">0</b><span>uu/s</span></div>
+      <div class="scale" aria-hidden="true">
+        <div class="track"></div><div class="fill" id="spd-fill"></div>
+        <div class="tick" style="left:41.7%"><i>300 run</i></div>
+        <div class="tick" style="left:66.7%"><i>480 roadie</i></div>
+        <div class="tick up" style="left:95.8%"><i style="transform:translateX(-92%)">690 slide</i></div>
+      </div>
+    </section>
+
+    <section>
+      <p class="label">Input</p>
+      <div class="inputs">
+        <div class="pad"><div class="stickpad"><div class="dz"></div><div class="dot" id="stick-dot"></div></div>move</div>
+        <div class="pad"><div class="stickpad"><div class="dot" id="look-dot"></div></div>look</div>
+        <div class="abtn" id="a-ind">A</div>
+        <div class="src" id="src">Keyboard</div>
+      </div>
+    </section>
+
+    <section>
+      <p class="label">Gears camera</p>
+      <dl class="cam">
+        <dt>Mode</dt><dd id="cam-mode">GameplayCam_Default</dd>
+        <dt>FOV</dt><dd id="cam-fov">80°</dd>
+        <dt>Offset</dt><dd id="cam-off">(−160, 48, 16)</dd>
+      </dl>
+    </section>
+
+    <section>
+      <p class="label">Map</p>
+      <canvas id="map" aria-label="Top-down map, camera forward is up"></canvas>
+    </section>
+
+    <section>
+      <p class="label">Move log</p>
+      <ol class="log" id="log"></ol>
+    </section>
+
+    <section>
+      <p class="label">Controls</p>
+      <dl class="keys">
+        <dt>Move</dt><dd>Left stick, or WASD</dd>
+        <dt>Look</dt><dd>Right stick, mouse (click the view), or arrow keys</dd>
+        <dt>A</dt><dd>Controller A, or Space</dd>
+        <dt>Tap A</dt><dd>Slide into cover in reach, else evade</dd>
+        <dt>Hold A</dt><dd>Roadie run (after 0.3 s); into a wall = cover</dd>
+        <dt>In cover</dt><dd>Stick left / right moves along the wall. Pull the stick away from the wall to push off it. At an edge: stick toward the wall + A = cover slip, stick along the wall + A = swat turn to cover across a gap (else evade out). Tap A again during a swat and hold it = roadie run out of it. Hold A = run along cover. On waist-high cover: stick toward the wall + A = vault over (keep A held to roadie run out of the landing)</dd>
+        <dt>Aim</dt><dd>Left trigger, or right mouse (walks at half speed, no roadie run)</dd>
+        <dt>Fire</dt><dd>Right trigger, or left mouse once the view has the mouse</dd>
+        <dt>Swap gun</dt><dd>Y, or Q (Lancer / Gnasher)</dd>
+        <dt>Reload</dt><dd>RB, or E. Press again in the zone for an active reload (white = perfect: faster and more damage; grey = good: faster; miss = jam)</dd>
+        <dt>R</dt><dd>Reset</dd>
+      </dl>
+    </section>
+
+    <section>
+      <p class="label">What's real here</p>
+      <p class="note">Movement speeds, timings, reach and which moves chain come from Gears 3's code. The camera's field of view, shoulder offsets, follow lag and look speed come from Gears 3's camera settings; its pivot height and how it blends between modes are my approximations. Evade, slip and swat distances and timings come from Marcus's own animations. Vault timing and distance come from Gears 3's vault code and Marcus's jump animation; how far the far side of the wall is (a native function I can't read) is my approximation. Load your export to see him; without it you get a stand-in figure.</p>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>/*__GEARS_CORE__*/</script>
+<script>
+(() => {
+  "use strict";
+  const G = window.GearsCore, T = window.THREE;
+  const $ = (id) => document.getElementById(id);
+  const DT = 1 / 60, TAU = Math.PI * 2, URAD = TAU / 65536;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!T) {
+    $("hint").innerHTML = "The 3D view couldn't load (three.js was blocked).<small>Reload the page to try again.</small>";
+    return;
+  }
+
+  // Unreal (X forward, Y right, Z up, left-handed) → three.js (right-handed, Y up).
+  const toT = (x, y, z) => new T.Vector3(y, z, -x);
+  const setT = (v3, p, z = p.z || 0) => v3.set(p.y, z, -p.x);
+
+  const css = getComputedStyle(document.documentElement);
+  const tok = (n) => css.getPropertyValue(n).trim();
+  const STATE_COLOR = {
+    Walk: "--cool", InCover: "--good", CoverRun: "--good", RoadieRun: "--cover-edge",
+    Run2Cover: "--hot", CoverSlip: "--hot", PushOut: "--hot", SwatTurn: "--hot", Vault: "--hot", EvadeFwd: "--hot", EvadeBwd: "--hot", EvadeLt: "--hot", EvadeRt: "--hot",
+  };
+
+  // ------------------------------------------------------------ Gears values
+  // Camera numbers from Gears 3 (docs/GEARS_VALUES.md → Camera). Offsets are camera-space
+  // (X forward, Y right, Z up); High/Mid/Low are blended by pitch.
+  const CAM = {
+    // GameplayCam_Targeting: FOVAngle 50, BlendTime 0.067, PerAxisOriginLocInterpSpeed (0,0,8)
+    // (0 = no lag on that axis)
+    target: { name: "GameplayCam_Targeting", fov: 50, high: [-40, 40, 24], mid: [-70, 40, 6], low: [-125, 45, 20], follow: [1e3, 1e3, 8], blend: 0.067, worst: [-8, 1, 95] },
+    default: { name: "GameplayCam_Default", fov: 80, high: [-128, 56, 40], mid: [-160, 48, 16], low: [-160, 48, 56], follow: [5, 20, 20], worst: [-8, 1, 95] },
+    roadie:  { name: "GameplayCam_RoadieRun", fov: 105, high: [0, 56, 50], mid: [-88, 48, -40], low: [-88, 56, -40], follow: [8, 20, 20], worst: [-20, 10, 60] },
+    cover:   { name: "GameplayCam_Cover", fov: 95, high: [-128, 0, 24], mid: [-160, 0, 0], low: [-160, 0, 32], follow: [12, 12, 12], worst: [-8, 10, 90] },
+  };
+  const EVADE_ADJ = [0, 0, -28];
+  const COVER_POSTURE = { Mid: [-32, 40, -12], Standing: [0, 40, 0] };
+  const COVER_EDGE = [0, 84, 0];
+  const COVER_YAW_LIMIT = 13650 * URAD, COVER_NORMAL_SPEED = 32768 * URAD;
+  const PAWN_HALF = 78, EYE = 60;       // Default__Pawn cylinder, Default__GearPawn.BaseEyeHeight
+  const LOOK_YAW = 100 * 300, LOOK_PITCH = 100 * 250, SENS = 0.8, PITCH_RATIO = 0.75;
+  const YAW_ACCEL = { threshold: 0.5, ramp: 1.3, max: 0.6, mult: 2.5 };
+  const ROADIE_CAM_TURN = 0.15, BLEND = 0.15, PITCH_LIMIT = 60 * Math.PI / 180;
+  const MID_H = 100, FULL_H = 230, WALL_T = 24; // visual heights only
+
+  // ---------------------------------------------------------------- levels
+  const W = (ax, ay, bx, by, nx, ny, h = "Mid") => ({ a: G.V(ax, ay), b: G.V(bx, by), normal: G.V(nx, ny), height: h });
+  const LEVELS = {
+    lane: { start: G.V(-420, 0), yaw: 0, walls: [
+      W(-100, -250, -100, 250, -1, 0), W(250, -250, 250, 250, -1, 0),
+      W(600, -250, 600, 250, -1, 0), W(250, 450, 600, 450, 0, -1, "Standing"),
+      W(-100, -450, 250, -450, 0, 1),
+    ], targets: [[900, -150], [900, 150], [1150, 0], [420, -650]] },
+    edges: { start: G.V(-400, -120), yaw: 0, walls: [
+      W(-150, -200, -150, -40, -1, 0), W(-150, 60, -150, 220, -1, 0),
+      W(150, -320, 150, -160, -1, 0), W(150, -20, 150, 140, -1, 0),
+      W(450, -200, 450, -40, -1, 0), W(450, 60, 450, 220, -1, 0),
+      W(750, -120, 750, 40, -1, 0, "Standing"),
+    ], targets: [[1000, -250], [1000, 180], [600, -480]] },
+    yard: { start: G.V(-500, -300), yaw: 0, walls: [
+      W(-200, -400, -200, -150, -1, 0), W(0, 100, 260, 260, -0.524, 0.852),
+      W(250, -350, 450, -150, -0.707, 0.707), W(500, 200, 500, 450, -1, 0, "Standing"),
+      W(-300, 350, -50, 350, 0, -1), W(700, -250, 700, 0, -1, 0),
+    ], targets: [[950, -120], [850, 320], [300, -700]] },
+  };
+
+  // ------------------------------------------------------------------ weapons
+  // Gears 3 numbers (docs/GEARS_VALUES.md): GearWeapon.ini [GearWeap_AssaultRifle] /
+  // [GearWeap_Shotgun], Default__GearWeap_Shotgun.PelletSpread, GearWeapon.ModifyDamage.
+  const WEAPONS = {
+    lancer: { name: "Lancer", damage: 51, rpm: 550, mag: 60, spare: 360, reload: 2.5, recoil: 35, auto: true,
+      aimError: [1.5, 5], ranges: [200, 750, 2048, 4096], mods: [1.3, 1.0, 1.0, 0.8], reloadAnim: "ADD_AR_Reload",
+      ar: { start: 0.75, sweet: 0.30, mult: 1.3, bonus: 8.0, successAnim: 0 }, failAnim: "ADD_AR_Reload_Fail" },
+    gnasher: { name: "Gnasher", damage: 500, rpm: 60, mag: 8, spare: 31, reload: 3.0, recoil: 300, auto: false,
+      aimError: [0, 8], ranges: [300, 1000, 1300, 1650], mods: [1.0, 0.75, 0.45, 0.35], reloadAnim: "ADD_SG_Reload",
+      ar: { start: 0.85, sweet: 0.25, mult: 1.2, bonus: 9.75, successAnim: 55 / 30 }, failAnim: "ADD_SG_Reload_Fail", successClip: "ADD_SG_Reload_Success",
+      // URot (yaw, pitch) offsets per pellet
+      pellets: [[0, 0], [0, 284], [-350, -256], [350, -256], [0, 900], [875, 425], [-875, 425], [-875, -425], [875, -425], [0, -900]] },
+  };
+  // Active reload (same rules as gears_core::weapons): perfect window per tier, then good;
+  // good / perfect speed the rest up 1.66 / 2.5 (or the weapon's success anim), miss = 4 s jam.
+  const AR_SUPER = [0.100, 0.075, 0.050], AR_SPEEDUP = 1.66, AR_SUPER_SPEEDUP = 2.5, AR_FAIL_ANIM = 4.0;
+  const TARGET_HEALTH = 1000;         // Locust Drone health (GearPawn_LocustDrone)
+  const INACCURACY_INTERP = 4.5;      // Default__GearWeapon.Inaccuracy_Interp_Base_Speed
+  const TRACE_RANGE = 16384;          // ASSUMPTION: long enough for any range here
+  // GearWeapon.ModifyDamage: full melee mod inside Range_Melee, then lerp band to band
+  function rangeMod(W, d) {
+    const r = W.ranges, m = W.mods;
+    if (d <= r[0]) return m[0];
+    for (let i = 1; i < 4; i++) if (d <= r[i]) return m[i - 1] + (m[i] - m[i - 1]) * (d - r[i - 1]) / (r[i] - r[i - 1]);
+    return m[3];
+  }
+  const WPN = { cur: "lancer", ammo: {}, cooldown: 0, reloading: 0, reloadLen: 0, rEl: 0, rTotal: 0, arResult: 0, arAt: 0, arTier: 0, bonus: 0, loop: null, accuracy: 1, lastFire: false, prevSwap: false, prevReload: false, flash: 0, hitT: 0 };
+  function resetWeapons() {
+    for (const [k, W] of Object.entries(WEAPONS)) WPN.ammo[k] = { mag: W.mag, spare: W.spare };
+    WPN.cooldown = 0; WPN.reloading = 0; WPN.accuracy = 1; WPN.arTier = 0; WPN.bonus = 0; stopLoop(false);
+  }
+
+  // ------------------------------------------------------------------ scene
+  const canvas = $("view"), stage = $("stage");
+  const renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.outputEncoding = T.sRGBEncoding;
+  const scene = new T.Scene();
+  const sky = new T.Color(tok("--floor"));
+  scene.background = sky;
+  scene.fog = new T.Fog(sky, 1400, 5200);
+  const camera = new T.PerspectiveCamera(60, 1, 5, 12000);
+
+  scene.add(new T.HemisphereLight(0x9fb3c8, 0x1a1a18, 0.55));
+  const sun = new T.DirectionalLight(0xffe2b8, 0.95); // sodium floodlight cast
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -900, right: 900, top: 900, bottom: -900, near: 10, far: 4000 });
+  sun.shadow.bias = -0.0008;
+  scene.add(sun, sun.target);
+
+  // Floor: concrete with a 100 uu grid and heavier 500 uu lines.
+  function floorTexture() {
+    const c = document.createElement("canvas"); c.width = c.height = 1000;
+    const g = c.getContext("2d");
+    g.fillStyle = "#2a2e33"; g.fillRect(0, 0, 1000, 1000);
+    for (let i = 0; i < 2600; i++) { // aggregate speckle
+      g.fillStyle = `rgba(${Math.random() < 0.5 ? "255,255,255" : "0,0,0"},${Math.random() * 0.05})`;
+      g.fillRect(Math.random() * 1000, Math.random() * 1000, 2 + Math.random() * 4, 2 + Math.random() * 4);
+    }
+    g.strokeStyle = "#3a4048"; g.lineWidth = 2;
+    for (let i = 0; i <= 1000; i += 200) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 1000); g.moveTo(0, i); g.lineTo(1000, i); g.stroke(); }
+    g.strokeStyle = "#4a525c"; g.lineWidth = 6;
+    g.strokeRect(0, 0, 1000, 1000);
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(16, 16);
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    t.encoding = T.sRGBEncoding;
+    return t;
+  }
+  const floor = new T.Mesh(new T.PlaneGeometry(8000, 8000), new T.MeshStandardMaterial({ map: floorTexture(), roughness: 0.95 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Floodlight poles around the range (ambience; the light itself is `sun`).
+  const poleMat = new T.MeshStandardMaterial({ color: 0x3b4047, roughness: 0.7 });
+  const lampMat = new T.MeshBasicMaterial({ color: 0xffd9a0 });
+  for (const [x, y] of [[-1500, -1500], [-1500, 1500], [1800, -1500], [1800, 1500]]) {
+    const pole = new T.Mesh(new T.CylinderGeometry(8, 10, 900, 8), poleMat);
+    pole.position.copy(toT(x, y, 450)); pole.castShadow = true;
+    const lamp = new T.Mesh(new T.BoxGeometry(90, 24, 40), lampMat);
+    lamp.position.copy(toT(x, y, 910));
+    scene.add(pole, lamp);
+  }
+
+  const wallGroup = new T.Group(); scene.add(wallGroup);
+  const concrete = new T.MeshStandardMaterial({ color: new T.Color(tok("--wall")), roughness: 0.9 });
+  const paint = new T.MeshBasicMaterial({ color: new T.Color(tok("--cover-edge")) });
+  function buildWalls(walls) {
+    while (wallGroup.children.length) {
+      const m = wallGroup.children.pop();
+      if (m.geometry) m.geometry.dispose();
+    }
+    for (const w of walls) {
+      const dx = w.b.x - w.a.x, dy = w.b.y - w.a.y, L = Math.hypot(dx, dy);
+      const h = w.height === "Standing" ? FULL_H : MID_H;
+      const n = w.normal, nl = Math.hypot(n.x, n.y), nx = n.x / nl, ny = n.y / nl;
+      const mx = (w.a.x + w.b.x) / 2 - nx * WALL_T / 2, my = (w.a.y + w.b.y) / 2 - ny * WALL_T / 2;
+      const rotY = Math.atan2(dx, dy);
+      const box = new T.Mesh(new T.BoxGeometry(L, h, WALL_T), concrete);
+      box.position.copy(toT(mx, my, h / 2)); box.rotation.y = rotY;
+      box.castShadow = box.receiveShadow = true;
+      wallGroup.add(box);
+      // amber paint on both cover faces: a top stripe and the two slip edges
+      for (const off of [0.6, -WALL_T - 0.6]) {
+        const fx = (w.a.x + w.b.x) / 2 + nx * off, fy = (w.a.y + w.b.y) / 2 + ny * off;
+        const stripe = new T.Mesh(new T.BoxGeometry(L, 5, 1), paint);
+        stripe.position.copy(toT(fx, fy, h - 6)); stripe.rotation.y = rotY;
+        wallGroup.add(stripe);
+        for (const e of [w.a, w.b]) {
+          const post = new T.Mesh(new T.BoxGeometry(5, h, 1.2), paint);
+          const inset = e === w.a ? 2.5 : -2.5;
+          post.position.copy(toT(e.x + nx * off + (dx / L) * inset, e.y + ny * off + (dy / L) * inset, h / 2));
+          post.rotation.y = rotY;
+          wallGroup.add(post);
+        }
+      }
+    }
+  }
+
+  // --------------------------------------------------------------- soldier
+  // A stand-in figure posed from the movement state until the real animations exist.
+  const armor = new T.MeshStandardMaterial({ color: 0x4a5058, roughness: 0.6, metalness: 0.25 });
+  const under = new T.MeshStandardMaterial({ color: 0x23272c, roughness: 0.85 });
+  const face = new T.MeshStandardMaterial({ color: 0x8a7462, roughness: 0.8 });
+  const accent = new T.MeshBasicMaterial({ color: new T.Color(tok("--cool")) });
+  const part = (geo, mat, x = 0, y = 0, z = 0) => {
+    const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; return m;
+  };
+  const LEG = 40;
+  function buildSoldier() {
+    const S = {};
+    S.root = new T.Group();
+    S.turn = new T.Group(); S.root.add(S.turn);
+    S.roll = new T.Group(); S.roll.position.y = 55; S.turn.add(S.roll);
+    S.body = new T.Group(); S.body.position.y = -55; S.roll.add(S.body);
+    S.hips = new T.Group(); S.hips.position.y = 84; S.body.add(S.hips);
+    S.hips.add(part(new T.BoxGeometry(36, 18, 24), under, 0, 0, 0));
+    S.torso = new T.Group(); S.torso.position.y = 8; S.hips.add(S.torso);
+    S.torso.add(part(new T.BoxGeometry(46, 50, 30), armor, 0, 27, 0));
+    S.torso.add(part(new T.BoxGeometry(34, 24, 4), under, 0, 30, -16));
+    S.torso.add(part(new T.BoxGeometry(32, 36, 14), armor, 0, 30, 21));      // pack
+    S.torso.add(part(new T.BoxGeometry(5, 28, 1), accent, 0, 30, 28.6));     // state stripe
+    S.torso.add(part(new T.BoxGeometry(18, 12, 26), armor, -29, 48, 0));     // pauldrons
+    S.torso.add(part(new T.BoxGeometry(18, 12, 26), armor, 29, 48, 0));
+    const head = part(new T.SphereGeometry(10.5, 16, 12), face, 0, 64, -2);
+    head.scale.set(1, 1.1, 1);
+    S.torso.add(head, part(new T.BoxGeometry(14, 8, 14), under, 0, 54, 0));
+    // arms holding a rifle across the chest
+    S.arms = [];
+    for (const side of [-1, 1]) {
+      const sh = new T.Group(); sh.position.set(side * 27, 44, -2); S.torso.add(sh);
+      sh.add(part(new T.CylinderGeometry(6, 5.5, 26, 8), armor, 0, -13, 0));
+      const el = new T.Group(); el.position.y = -26; sh.add(el);
+      el.add(part(new T.CylinderGeometry(5.5, 5, 24, 8), under, 0, -12, 0));
+      sh.rotation.x = 0.85; sh.rotation.z = side * 0.25; el.rotation.x = 1.05;
+      S.arms.push(sh);
+    }
+    const rifle = new T.Group(); rifle.position.set(6, 30, -30); rifle.rotation.x = 0.12; S.torso.add(rifle);
+    rifle.add(part(new T.BoxGeometry(7, 10, 64), under, 0, 0, -6), part(new T.BoxGeometry(5, 14, 6), under, 0, -10, 6));
+    // legs: thigh at the hip, shin at the knee
+    S.legs = [];
+    for (const side of [-1, 1]) {
+      const th = new T.Group(); th.position.set(side * 11, -4, 0); S.hips.add(th);
+      th.add(part(new T.CylinderGeometry(8, 7, LEG, 8), under, 0, -LEG / 2, 0));
+      const kn = new T.Group(); kn.position.y = -LEG; th.add(kn);
+      kn.add(part(new T.CylinderGeometry(7, 6, LEG, 8), armor, 0, -LEG / 2, 0));
+      kn.add(part(new T.BoxGeometry(12, 7, 24), under, 0, -LEG - 1, -5));
+      S.legs.push({ th, kn });
+    }
+    S.pose = { hip: 84, lean: 0, turn: 0, swing: 0, phase: 0, kneeLift: 0 };
+    return S;
+  }
+  const soldier = buildSoldier();
+  scene.add(soldier.root);
+
+  // Reach preview on the floor and a state-coloured trail.
+  const reachGeo = new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]);
+  const reachMat = new T.LineDashedMaterial({ color: new T.Color(tok("--hot")), dashSize: 14, gapSize: 12, transparent: true });
+  const reachLine = new T.Line(reachGeo, reachMat);
+  const ring = new T.Mesh(new T.RingGeometry(16, 20, 32), new T.MeshBasicMaterial({ color: new T.Color(tok("--hot")), transparent: true }));
+  ring.rotation.x = -Math.PI / 2;
+  scene.add(reachLine, ring);
+  const TRAIL = 300;
+  const trailPos = new Float32Array(TRAIL * 3), trailCol = new Float32Array(TRAIL * 3);
+  const trailGeo = new T.BufferGeometry();
+  trailGeo.setAttribute("position", new T.BufferAttribute(trailPos, 3));
+  trailGeo.setAttribute("color", new T.BufferAttribute(trailCol, 3));
+  const trail = new T.Line(trailGeo, new T.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8 }));
+  trail.frustumCulled = false;
+  scene.add(trail);
+  let trailN = 0;
+  const colorCache = {};
+  const stateColor = (s) => colorCache[s] || (colorCache[s] = new T.Color(tok(STATE_COLOR[s] || "--cool")));
+
+  // ----------------------------------------------------------------- state
+  let levelKey = "lane", world, ch, lastEvent = 0, stateSince = 0, showReach = true;
+  const cam = { yaw: 0, pitch: -0.12, origin: G.V(0, 0, 0), offset: [-160, 48, 16], fov: 80, accel: 0, lastLook: 0, mode: CAM.default, pos: G.V(0, 0, 0) };
+
+  function load(key) {
+    levelKey = key;
+    const L = LEVELS[key];
+    // every wall is a slab: cover on both faces
+    world = G.WallWorld.twoSided(L.walls.map((w) => ({ ...w, normal: G.V(w.normal.x, w.normal.y) })), WALL_T);
+    ch = new G.Character(G.defaultConfig(), G.V(L.start.x, L.start.y), L.yaw);
+    buildWalls(L.walls);
+    buildTargets(L.targets || []);
+    resetWeapons();
+    lastEvent = 0; stateSince = 0; trailN = 0;
+    $("log").innerHTML = "";
+    $("st-reason").textContent = "Tap A toward a wall to slide into cover.";
+    for (const k of Object.keys(LEVELS)) $("lv-" + k).setAttribute("aria-pressed", String(k === key));
+    cam.yaw = L.yaw; cam.pitch = -0.12; cam.accel = 0;
+    cam.origin = G.V(ch.pos.x, ch.pos.y, PAWN_HALF + EYE);
+    cam.offset = CAM.default.mid.slice(); cam.fov = 80;
+    soldier.pose.phase = 0;
+  }
+
+  // ----------------------------------------------------------------- input
+  const TEST = { speed: 1, aim: false, fire: false }; // hooks for automated checks (slow motion, buttons)
+  const keys = new Set();
+  // A press seen since the last movement step: a tap shorter than one step still counts.
+  let mouseDX = 0, mouseDY = 0, aLatch = false;
+  addEventListener("keydown", (e) => {
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+    if (e.code === "KeyR" && !e.repeat) load(levelKey);
+    if (e.code === "Space" && !e.repeat) aLatch = true;
+    keys.add(e.code);
+  });
+  addEventListener("keyup", (e) => keys.delete(e.code));
+  addEventListener("blur", () => keys.clear());
+  canvas.addEventListener("click", () => {
+    if (document.pointerLockElement === canvas || matchMedia("(pointer: coarse)").matches) return;
+    try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (_) { /* optional */ }
+  });
+  document.addEventListener("pointerlockchange", updateHint);
+  const mouseBtn = { l: false, r: false };
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  addEventListener("mousedown", (e) => { if (document.pointerLockElement === canvas) { if (e.button === 0) mouseBtn.l = true; } if (e.button === 2) mouseBtn.r = true; });
+  addEventListener("mouseup", (e) => { if (e.button === 0) mouseBtn.l = false; if (e.button === 2) mouseBtn.r = false; });
+  addEventListener("mousemove", (e) => {
+    if (document.pointerLockElement !== canvas) return;
+    mouseDX += e.movementX; mouseDY += e.movementY;
+  });
+
+  const touchState = { x: 0, y: 0, a: false, active: false, lookId: null, lx: 0, ly: 0 };
+  function setupTouch() {
+    if (!matchMedia("(pointer: coarse)").matches) return;
+    $("touch").hidden = false;
+    const ts = $("tstick"), ta = $("ta");
+    const move = (e) => {
+      const r = ts.getBoundingClientRect();
+      const dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      const dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      const m = Math.hypot(dx, dy), k = m > 1 ? 1 / m : 1;
+      touchState.x = dx * k; touchState.y = -dy * k; touchState.active = true;
+    };
+    ts.addEventListener("pointerdown", (e) => { ts.setPointerCapture(e.pointerId); move(e); });
+    ts.addEventListener("pointermove", (e) => { if (ts.hasPointerCapture(e.pointerId)) move(e); });
+    const end = () => { touchState.x = 0; touchState.y = 0; };
+    ts.addEventListener("pointerup", end); ts.addEventListener("pointercancel", end);
+    ta.addEventListener("pointerdown", (e) => { e.preventDefault(); touchState.a = true; aLatch = true; touchState.active = true; ta.classList.add("on"); });
+    const up = () => { touchState.a = false; ta.classList.remove("on"); };
+    ta.addEventListener("pointerup", up); ta.addEventListener("pointercancel", up); ta.addEventListener("pointerleave", up);
+    // drag anywhere else on the view to look
+    canvas.addEventListener("pointerdown", (e) => { touchState.lookId = e.pointerId; touchState.lx = e.clientX; touchState.ly = e.clientY; touchState.active = true; });
+    canvas.addEventListener("pointermove", (e) => {
+      if (e.pointerId !== touchState.lookId) return;
+      mouseDX += (e.clientX - touchState.lx) * 1.6; mouseDY += (e.clientY - touchState.ly) * 1.6;
+      touchState.lx = e.clientX; touchState.ly = e.clientY;
+    });
+    const lend = (e) => { if (e.pointerId === touchState.lookId) touchState.lookId = null; };
+    canvas.addEventListener("pointerup", lend); canvas.addEventListener("pointercancel", lend);
+  }
+
+  const clamp = (v, lo = -1, hi = 1) => Math.max(lo, Math.min(hi, v));
+  const deadzone = (x, y, dz) => { const m = Math.hypot(x, y); if (m < dz) return [0, 0]; const k = Math.min(1, (m - dz) / (1 - dz)) / m; return [x * k, y * k]; };
+  function readInput() {
+    const i = rawInput();
+    if (aLatch) { i.a = true; aLatch = false; }
+    // weapon buttons: LT aim, RT fire, Y swap, RB reload (Gears 3 default layout)
+    const pad = (navigator.getGamepads ? [...navigator.getGamepads()] : []).find((p) => p && p.connected);
+    const btn = (n) => !!(pad && pad.buttons[n] && (pad.buttons[n].pressed || pad.buttons[n].value > 0.4));
+    i.aim = btn(6) || mouseBtn.r;
+    i.fire = btn(7) || mouseBtn.l;
+    i.swap = btn(3) || keys.has("KeyQ");
+    i.reload = btn(5) || keys.has("KeyE");
+    if (TEST.aim) i.aim = true; if (TEST.fire) i.fire = true; if (TEST.reload) i.reload = true;
+    return i;
+  }
+  let padA = false;
+  function rawInput() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const p of pads) {
+      if (!p || !p.connected) continue;
+      const [lx, ly] = deadzone(p.axes[2] || 0, -(p.axes[3] || 0), 0.12);
+      const a = !!(p.buttons[0] && p.buttons[0].pressed);
+      if (a && !padA) aLatch = true;
+      padA = a;
+      return { stick_x: clamp(p.axes[0] || 0), stick_y: clamp(-(p.axes[1] || 0)), look_x: lx, look_y: ly, a, src: "Controller" };
+    }
+    let lx = 0, ly = 0;
+    if (keys.has("ArrowRight")) lx += 1;
+    if (keys.has("ArrowLeft")) lx -= 1;
+    if (keys.has("ArrowUp")) ly += 1;
+    if (keys.has("ArrowDown")) ly -= 1;
+    if (touchState.active) return { stick_x: touchState.x, stick_y: touchState.y, look_x: lx, look_y: ly, a: touchState.a, src: "Touch" };
+    let x = 0, y = 0;
+    if (keys.has("KeyW")) y += 1;
+    if (keys.has("KeyS")) y -= 1;
+    if (keys.has("KeyD")) x += 1;
+    if (keys.has("KeyA")) x -= 1;
+    const m = Math.hypot(x, y);
+    if (m > 1) { x /= m; y /= m; }
+    return { stick_x: x, stick_y: y, look_x: lx, look_y: ly, a: keys.has("Space"), src: document.pointerLockElement === canvas ? "Keyboard + mouse" : "Keyboard" };
+  }
+  function hasPad() { const pads = navigator.getGamepads ? navigator.getGamepads() : []; for (const p of pads) if (p && p.connected) return true; return false; }
+  function updateHint() { $("hint").hidden = document.pointerLockElement === canvas || hasPad() || touchState.active || matchMedia("(pointer: coarse)").matches; }
+  addEventListener("gamepadconnected", updateHint);
+
+  // Host-side wall push-out (the core doesn't sweep collision yet). Radius from Default__Pawn.
+  function pushOut() {
+    if (ch.active && (ch.active.kind === "Run2Cover" || ch.active.kind === "Vault")) return;
+    const r = 32;
+    for (const w of world.walls) {
+      const sx = w.b.x - w.a.x, sy = w.b.y - w.a.y, L2 = sx * sx + sy * sy;
+      const t = clamp(((ch.pos.x - w.a.x) * sx + (ch.pos.y - w.a.y) * sy) / L2, 0, 1);
+      const px = w.a.x + sx * t, py = w.a.y + sy * t;
+      const dx = ch.pos.x - px, dy = ch.pos.y - py, d = Math.hypot(dx, dy);
+      if (d < r && d > 1e-6) ch.pos = G.V(px + (dx / d) * r, py + (dy / d) * r, 0);
+    }
+  }
+
+  // ---------------------------------------------------------------- camera
+  const angleDiff = (a, b) => { let d = (b - a) % TAU; if (d > Math.PI) d -= TAU; else if (d < -Math.PI) d += TAU; return d; };
+  const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const evading = () => ch.active && ch.active.kind.startsWith("Evade");
+  let aiming = false;
+  function camMode() {
+    if (aiming) return CAM.target;
+    if (ch.active && ch.active.kind === "RoadieRun") return CAM.roadie;
+    if (ch.cover) return CAM.cover;
+    return CAM.default;
+  }
+  function stepCamera(input, dt) {
+    const mode = cam.mode = camMode();
+    // look: base rate × sensitivity × FOV/90, with Gears' yaw view acceleration
+    const fovScale = cam.fov / 90;
+    if (Math.abs(input.look_x) > YAW_ACCEL.threshold) cam.accel = Math.min(YAW_ACCEL.max, cam.accel + dt / YAW_ACCEL.ramp);
+    else cam.accel = Math.max(0, cam.accel - 4 * dt / YAW_ACCEL.ramp);
+    const yawRate = LOOK_YAW * SENS * fovScale * (1 + YAW_ACCEL.mult * cam.accel) * URAD;
+    const pitchRate = LOOK_PITCH * SENS * PITCH_RATIO * fovScale * URAD;
+    const looked = input.look_x !== 0 || input.look_y !== 0 || mouseDX !== 0 || mouseDY !== 0;
+    cam.yaw += input.look_x * yawRate * dt + mouseDX * 0.0024 * fovScale;
+    cam.pitch += input.look_y * pitchRate * dt - mouseDY * 0.0024 * fovScale;
+    mouseDX = mouseDY = 0;
+    if (looked) cam.lastLook = ch.time;
+    if (mode === CAM.roadie) {
+      // GSM_RoadieRun.RRCameraTurnTime: the camera swings in behind the run
+      cam.yaw += angleDiff(cam.yaw, ch.yaw) * (1 - Math.exp(-dt / ROADIE_CAM_TURN));
+      cam.pitch += (-3000 * URAD - cam.pitch) * Math.min(1, 1.75 * dt); // PitchAutoCenterSpeedRoadieRun
+    } else if (ch.time - cam.lastLook > 2.0) {
+      cam.pitch += (-0.12 - cam.pitch) * Math.min(1, 0.5 * dt);           // PitchAutoCenterDelay / Speed
+    }
+    if (ch.cover) { // GameplayCam_Cover.ViewMaxLimit: ±75° around the direction over the cover
+      const base = Math.atan2(-ch.cover.spot.normal.y, -ch.cover.spot.normal.x);
+      const d = angleDiff(base, cam.yaw);
+      if (Math.abs(d) > COVER_YAW_LIMIT) {
+        const over = d - Math.sign(d) * COVER_YAW_LIMIT;
+        cam.yaw -= Math.sign(over) * Math.min(Math.abs(over), COVER_NORMAL_SPEED * dt);
+      }
+    }
+    cam.pitch = clamp(cam.pitch, -PITCH_LIMIT, PITCH_LIMIT);
+
+    // offset: pitch-blended High/Mid/Low, mirrored in cover, evade adjustment
+    let target = cam.pitch >= 0 ? lerp3(mode.mid, mode.low, cam.pitch / (Math.PI / 2)) : lerp3(mode.mid, mode.high, -cam.pitch / (Math.PI / 2));
+    if (evading()) target = [target[0] + EVADE_ADJ[0], target[1] + EVADE_ADJ[1], target[2] + EVADE_ADJ[2]];
+    if (ch.cover && ch.mirrored) target[1] = -target[1];
+    aiming = !!input.aim;
+    const kb = 1 - Math.exp(-dt / ((mode.blend || BLEND) / 3));
+    cam.offset = lerp3(cam.offset, target, kb);
+    cam.fov += (mode.fov - cam.fov) * kb;
+
+    // origin: pawn centre + eye height, plus the cover posture shift (pawn-relative)
+    const vv = vaultVisual();
+    const o = { x: ch.pos.x, y: ch.pos.y, z: PAWN_HALF + EYE + (vv ? vv.up : 0) };
+    if (ch.cover) {
+      const rel = (COVER_POSTURE[ch.cover.spot.height] || COVER_POSTURE.Mid).slice();
+      // aiming over mid cover pops you up (GameplayCam_CoverTargeting.PawnRel_Mod_PopUp_MidLevel)
+      // GameplayCam_CoverTargeting: PawnRel_Posture_MidLevel (-10, 8, -82) + PawnRel_Mod_PopUp_MidLevel (15, 34, 86)
+      if (aiming && ch.cover.spot.height !== "Standing") { rel[0] = -10 + 15; rel[1] = 8 + 34; rel[2] = -82 + 86; }
+      if (ch.atCoverEdge(0.5)) rel[1] += COVER_EDGE[1];
+      if (ch.mirrored) rel[1] = -rel[1];
+      const f = { x: Math.cos(ch.yaw), y: Math.sin(ch.yaw) }, r = { x: -f.y, y: f.x };
+      o.x += f.x * rel[0] + r.x * rel[1]; o.y += f.y * rel[0] + r.y * rel[1]; o.z += rel[2];
+    }
+    // per-axis follow in the camera's frame (PerAxisOriginLocInterpSpeed)
+    const cf = { x: Math.cos(cam.yaw), y: Math.sin(cam.yaw) }, cr = { x: -cf.y, y: cf.x };
+    const dx = o.x - cam.origin.x, dy = o.y - cam.origin.y, dz = o.z - cam.origin.z;
+    const along = (dx * cf.x + dy * cf.y) * Math.min(1, mode.follow[0] * dt);
+    const side = (dx * cr.x + dy * cr.y) * Math.min(1, mode.follow[1] * dt);
+    cam.origin = G.V(cam.origin.x + cf.x * along + cr.x * side, cam.origin.y + cf.y * along + cr.y * side, cam.origin.z + dz * Math.min(1, mode.follow[2] * dt));
+  }
+
+  // Wall test for the camera boom: pull the camera in front of any wall taller than it.
+  function segHit(p, q, a, b) {
+    const rx = q.x - p.x, ry = q.y - p.y, sx = b.x - a.x, sy = b.y - a.y;
+    const den = rx * sy - ry * sx;
+    if (Math.abs(den) < 1e-9) return null;
+    const t = ((a.x - p.x) * sy - (a.y - p.y) * sx) / den, u = ((a.x - p.x) * ry - (a.y - p.y) * rx) / den;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : null;
+  }
+  function placeCamera(time) {
+    const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    const fwd = { x: cp * cy, y: cp * sy, z: sp }, right = { x: -sy, y: cy, z: 0 }, up = { x: -sp * cy, y: -sp * sy, z: cp };
+    const [ox, oy, oz] = cam.offset;
+    let p = {
+      x: cam.origin.x + fwd.x * ox + right.x * oy + up.x * oz,
+      y: cam.origin.y + fwd.y * ox + right.y * oy + up.y * oz,
+      z: cam.origin.z + fwd.z * ox + right.z * oy + up.z * oz,
+    };
+    // (no homemade roadie bob: it fought the real 16-frame step rhythm)
+    const pivot = { x: ch.pos.x, y: ch.pos.y };
+    let best = 1;
+    for (const w of world.walls) {
+      const h = w.height === "Standing" ? FULL_H : MID_H;
+      if (p.z > h + 8) continue;
+      const n = w.normal, nl = Math.hypot(n.x, n.y);
+      for (const off of [6, -WALL_T - 6]) {
+        const a = { x: w.a.x + n.x / nl * off, y: w.a.y + n.y / nl * off }, b = { x: w.b.x + n.x / nl * off, y: w.b.y + n.y / nl * off };
+        const t = segHit(pivot, p, a, b);
+        if (t !== null && t < best) best = t;
+      }
+    }
+    if (best < 1) { p = { x: pivot.x + (p.x - pivot.x) * best, y: pivot.y + (p.y - pivot.y) * best, z: p.z }; }
+    cam.pos = p;
+    camera.position.copy(toT(p.x, p.y, p.z));
+    camera.lookAt(toT(p.x + fwd.x * 1000, p.y + fwd.y * 1000, p.z + fwd.z * 1000));
+    // UE3 FOVAngle is horizontal; three.js wants vertical
+    camera.fov = 2 * Math.atan(Math.tan((cam.fov * Math.PI / 180) / 2) / camera.aspect) * 180 / Math.PI;
+    camera.updateProjectionMatrix();
+  }
+
+  // Vault: the pawn's height (the core's jump rise and physics fall). With your export
+  // loaded, the jump follows AR_Mantle_Start's own root track (straight up, then over).
+  function vaultVisual() {
+    const a = ch.active;
+    if (!a || a.kind !== "Vault") return null;
+    let up = ch.height(), fwd = 0;
+    const cv = REAL.curves && REAL.curves[REAL.vaultMirror ? "AR_Mantle_Mirrored_Start" : "AR_Mantle_Start"];
+    if (cv && a.elapsed < a.split) {
+      const fr = Math.min(a.elapsed * ch.cfg.vault_speed_mod * 30, cv.length - 1);
+      const i = Math.floor(fr), j = Math.min(i + 1, cv.length - 1), k = fr - i;
+      const cf = cv[i][0] + (cv[j][0] - cv[i][0]) * k, cu = cv[i][1] + (cv[j][1] - cv[i][1]) * k;
+      const scale = Math.hypot(a.mid.x - a.start.x, a.mid.y - a.start.y) / ch.cfg.vault_jump_travel;
+      const done = (ch.pos.x - a.start.x) * a.dir.x + (ch.pos.y - a.start.y) * a.dir.y;
+      fwd = cf * scale - done; up = cu;
+    }
+    return { up, fwd, dir: a.dir };
+  }
+
+  // -------------------------------------------------------------- posing
+  const damp = (cur, target, rate, dt) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
+  let prevPos = null;
+  function poseSoldier(dt) {
+    const S = soldier, P = S.pose, name = ch.stateName(), a = ch.active;
+    const vv = vaultVisual();
+    if (vv) setT(S.root.position, G.V(ch.pos.x + vv.dir.x * vv.fwd, ch.pos.y + vv.dir.y * vv.fwd), vv.up);
+    else setT(S.root.position, ch.pos, 0);
+    S.root.rotation.y = -ch.yaw;
+    const moved = prevPos ? Math.hypot(ch.pos.x - prevPos.x, ch.pos.y - prevPos.y) : 0;
+    prevPos = { x: ch.pos.x, y: ch.pos.y };
+    const speed = dt > 0 ? moved / dt : 0;
+    const coverH = ch.cover && ch.cover.spot.height === "Standing";
+    let hip = 84, lean = Math.min(speed, 300) / 300 * 0.12, turn = 0, swing = Math.min(speed, 300) / 300 * 0.55, stride = 115;
+    let rollX = 0, rollZ = 0;
+    if (name === "RoadieRun") { hip = 72; lean = 0.55; swing = 0.85; stride = 150; }
+    else if (name === "Run2Cover") { hip = 52; lean = -0.2; swing = 0; }
+    else if (name === "InCover") { hip = coverH ? 82 : 50; lean = coverH ? 0.08 : 0.3; turn = ch.mirrored ? 0.55 : -0.55; swing = 0; }
+    else if (name === "CoverRun") { hip = coverH ? 76 : 56; lean = 0.45; turn = ch.mirrored ? 1.45 : -1.45; swing = 0.6; stride = 120; }
+    else if (name === "CoverSlip") { hip = 62; lean = 0.6; swing = 0.7; stride = 140; }
+    else if (name === "SwatTurn") { hip = coverH ? 74 : 54; lean = 0.5; turn = ch.mirrored ? 1.45 : -1.45; swing = 0.75; stride = 130; }
+    else if (name === "PushOut") { hip = 66; lean = 0.25; swing = 0.45; stride = 90; }
+    else if (name === "Vault") { hip = 62; lean = 0.35; swing = 0; }
+    else if (name.startsWith("Evade")) {
+      const t = a && a.duration > 0 ? Math.min(1, a.elapsed / a.duration) : 0;
+      const e = t < 0.75 ? 1 - Math.pow(1 - t / 0.75, 2) : 1;   // roll finishes, then recover
+      hip = 46 + 30 * Math.max(0, (t - 0.75) / 0.25); lean = 0.5; swing = 0;
+      if (name === "EvadeFwd") rollX = -TAU * e;
+      else if (name === "EvadeBwd") rollX = TAU * e;
+      else rollZ = (name === "EvadeRt" ? -1 : 1) * TAU * e;
+    }
+    const k = name.startsWith("Evade") || name === "Run2Cover" ? 18 : 10;
+    P.hip = damp(P.hip, hip, k, dt); P.lean = damp(P.lean, lean, k, dt);
+    P.turn += angleDiff(P.turn, turn) * (1 - Math.exp(-10 * dt));
+    P.swing = damp(P.swing, swing, 8, dt);
+    if (swing > 0) P.phase += (moved / stride) * Math.PI;
+    S.roll.rotation.set(reduceMotion ? 0 : rollX, 0, reduceMotion ? 0 : rollZ);
+    S.turn.rotation.y = P.turn;
+    S.hips.position.y = P.hip;
+    S.torso.rotation.x = -P.lean;
+    // legs: keep the feet under the hips (two equal links), then add the gait
+    const bend = Math.acos(clamp((P.hip - 6) / (2 * LEG), -1, 1));
+    S.legs.forEach((L, i) => {
+      const s = Math.sin(P.phase + i * Math.PI) * P.swing;
+      let th = bend + s + P.lean * 0.35, kn = -2 * bend - Math.max(0, -Math.cos(P.phase + i * Math.PI)) * P.swing * 1.1;
+      if (name === "Run2Cover") { th = i ? bend + 0.9 : bend - 0.3; kn = i ? -0.3 : -2 * bend - 0.6; }
+      L.th.rotation.x = th; L.kn.rotation.x = kn;
+    });
+    accent.color.copy(stateColor(name));
+  }
+
+  // ------------------------------------------------------------ real Marcus
+  // Your own export (tools/gears_anim_pack.py), read from your PC by this page. No
+  // Gears data is in the page itself. Clips are driven from the movement state, using
+  // Gears' own play rates (Evade 1.15, Slip 1.5, Swat 1.3, PushOut 0.75).
+  const REAL = { mixer: null, actions: {}, w: {}, wrap: null, model: null, last: "", landAt: -999, slipYaw: 0, prevYaw: 0, coverH: "Mid" };
+  const MF_COLORS = [0x575d55, 0x8a6b55, 0x2b2420, 0xe6e1d6];
+  // Keep the export's own texture when it has one (packed with --tex), else a flat colour.
+  function texMat(o, flat) {
+    const old = o.material, map = old && old.map;
+    const m = map
+      ? new T.MeshStandardMaterial({ map, roughness: 0.7, metalness: flat.metalness > 0.3 ? 0.4 : 0.05, alphaTest: old.alphaTest || 0, transparent: false, skinning: !!o.isSkinnedMesh })
+      : new T.MeshStandardMaterial({ ...flat, skinning: !!o.isSkinnedMesh });
+    if (map) { map.encoding = T.sRGBEncoding; map.anisotropy = 4; map.needsUpdate = true; }
+    return m;
+  }
+  function adoptGltf(gltf, fileName) {
+    const root = gltf.scene;
+    let isMarcus = false, isLancer = false, isGnasher = false;
+    root.traverse((o) => {
+      if (o.name === "b_MF_Root") isMarcus = true;
+      if (o.name === "b_AR_Root") isLancer = true;
+      if (o.name === "b_Shotgun_Root") isGnasher = true;
+    });
+    if (isMarcus) {
+      let slot = 0;
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = true; o.frustumCulled = false;
+        const i = Math.min(slot++, MF_COLORS.length - 1);
+        o.material = texMat(o, { color: MF_COLORS[i], roughness: i === 3 ? 0.3 : 0.6, metalness: i === 0 ? 0.35 : 0.05 });
+      });
+      if (REAL.wrap) soldier.root.remove(REAL.wrap);
+      REAL.wrap = new T.Group();
+      REAL.wrap.rotation.y = Math.PI;          // the mesh faces +Z in glTF, our -Z is forward
+      REAL.wrap.scale.setScalar(100);          // glTF metres → uu
+      REAL.wrap.add(root);
+      soldier.root.add(REAL.wrap);
+      soldier.roll.visible = false;
+      REAL.model = root;
+      REAL.mixer = new T.AnimationMixer(root);
+      REAL.actions = {}; REAL.w = {};
+      REAL.adds = {}; ADD_STATE.clear();
+      REAL.curves = {};
+      for (const an of (gltf.parser && gltf.parser.json.animations) || []) {
+        if (an.extras && an.extras.root) REAL.curves[an.name] = an.extras.root;
+      }
+      for (const clip of gltf.animations) {
+        // ADD_* clips are Gears' additive weapon layers. Checked offline against the
+        // anims' own IK targets: they apply as delta × base (pre-multiplied), which
+        // three.js additive blending doesn't do, so we apply them ourselves.
+        if (/^ADD_/.test(clip.name)) {
+          const tracks = [];
+          for (const tr of clip.tracks) {
+            const [nodeName, prop] = tr.name.split(".");
+            const node = root.getObjectByName(nodeName);
+            if (node) tracks.push({ node, prop, interp: tr.createInterpolant(), out: tr.ValueTypeName });
+          }
+          REAL.adds[clip.name] = { duration: clip.duration, tracks, w: 0, time: 0 };
+          continue;
+        }
+        const act = REAL.mixer.clipAction(clip);
+        act.play(); act.setEffectiveWeight(0); act.paused = true;
+        REAL.actions[clip.name] = act; REAL.w[clip.name] = 0;
+      }
+      for (const [k, w] of Object.entries(REAL.pendingWeapons || {})) attachWeapon(k, w);
+      return `Marcus: ${gltf.animations.length} animations`;
+    }
+    if (isLancer || isGnasher) {
+      const kind = isLancer ? "lancer" : "gnasher";
+      (REAL.weaponClips || (REAL.weaponClips = {}))[kind] = gltf.animations;
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = true; o.frustumCulled = false;
+        o.material = texMat(o, { color: isLancer ? 0x3c4146 : 0x4a4640, roughness: 0.45, metalness: 0.6 });
+      });
+      if (REAL.model) attachWeapon(kind, root); else (REAL.pendingWeapons || (REAL.pendingWeapons = {}))[kind] = root;
+      return WEAPONS[kind].name;
+    }
+    return `${fileName}: not a Marcus or Lancer export`;
+  }
+  // GearPawn.RightHandSocketName = "RightHand": socket on b_MF_Weapon_R_End,
+  // RelativeLocation (0, 0, 1.48239) uu, no rotation. With the additive layers applied in
+  // Gears' order the animators' hands sit exactly on the gun (IK targets 0 uu off), so no
+  // IK is needed. The weapon's barrel runs along the socket bone's +X (checked: idle
+  // forward-left and down, roadie forward-down, mid cover along the wall); the Lancer mesh
+  // has its barrel on its own +Z, so it turns 90° about Y.
+  const bone = (n) => { let o = null; REAL.model.traverse((x) => { if (x.name === n) o = x; }); return o; };
+  // The Gnasher mesh already has its barrel on its own +X (the Lancer's is on +Z).
+  function attachWeapon(kind, w) {
+    const socket = bone("b_MF_Weapon_R_End");
+    if (!socket) return;
+    w.position.set(0, 0.0148239, 0);
+    w.rotation.set(0, kind === "lancer" ? Math.PI / 2 : 0, 0);
+    socket.add(w);
+    (REAL.weapons || (REAL.weapons = {}))[kind] = w;
+    // the gun's own anims (COG_AssaultRifle: AR_Fire / AR_Reload / AR_Reload_Fumble; COG_Gnasher_Anim: SG_*)
+    const clips = (REAL.weaponClips || {})[kind] || [];
+    const mx = new T.AnimationMixer(w), acts = {};
+    for (const c of clips) { const a = mx.clipAction(c); a.setLoop(T.LoopOnce); a.clampWhenFinished = true; acts[c.name] = a; }
+    (REAL.wmix || (REAL.wmix = {}))[kind] = { mx, acts };
+    if (REAL.pendingWeapons) delete REAL.pendingWeapons[kind];
+    showWeapon();
+  }
+  // play a gun anim from the start, stretched to `dur` seconds (PlayWeaponAnimByDuration)
+  function gunAnim(name, dur) {
+    const m = REAL.wmix && REAL.wmix[WPN.cur]; if (!m || !m.acts[name]) return;
+    for (const a of Object.values(m.acts)) a.stop();
+    const a = m.acts[name]; a.reset(); a.timeScale = dur ? a.getClip().duration / dur : 1; a.play();
+  }
+  function showWeapon() { for (const [k, w] of Object.entries(REAL.weapons || {})) w.visible = k === WPN.cur; }
+  const _dq = new T.Quaternion(), _id = new T.Quaternion(), _dv = new T.Vector3();
+  // three.js's mixer only writes a bone when its animated value changes, so a held pose
+  // (e.g. the 1-frame idle) would keep last frame's additive result. Keep each bone's base
+  // and restore it when the mixer didn't rewrite the bone.
+  const ADD_STATE = new Map();
+  function restoreBases() {
+    for (const [node, st] of ADD_STATE) {
+      if (node.quaternion.equals(st.outQ)) node.quaternion.copy(st.baseQ);
+      if (node.position.equals(st.outP)) node.position.copy(st.baseP);
+      st.baseQ.copy(node.quaternion); st.baseP.copy(node.position);
+    }
+  }
+  function saveOutputs() {
+    for (const [node, st] of ADD_STATE) { st.outQ.copy(node.quaternion); st.outP.copy(node.position); }
+  }
+  function applyAdditives(dt, targets) {
+    if (!ADD_STATE.size) {
+      for (const A of Object.values(REAL.adds)) for (const tr of A.tracks) if (!ADD_STATE.has(tr.node))
+        ADD_STATE.set(tr.node, { baseQ: tr.node.quaternion.clone(), baseP: tr.node.position.clone(), outQ: new T.Quaternion(NaN, 0, 0, 0), outP: new T.Vector3(NaN, 0, 0) });
+    }
+    restoreBases();
+    const blend = 1 - Math.exp(-dt / 0.06);
+    for (const [n, A] of Object.entries(REAL.adds)) {
+      const want = targets[n];
+      A.w += ((want ? want.w : 0) - A.w) * blend;
+      if (want) A.time = want.t !== undefined ? want.t : (A.time + dt * (want.rate || 1)) % Math.max(A.duration, 1e-6);
+      if (A.w < 0.002) continue;
+      const t = Math.min(A.time, A.duration);
+      for (const tr of A.tracks) {
+        const v = tr.interp.evaluate(t);
+        if (tr.prop === "quaternion") {
+          _dq.set(v[0], v[1], v[2], v[3]);
+          if (A.w < 0.999) _dq.copy(_id).slerp(_q.set(v[0], v[1], v[2], v[3]), A.w);
+          tr.node.quaternion.premultiply(_dq);
+        } else if (tr.prop === "position") {
+          tr.node.position.add(_dv.set(v[0], v[1], v[2]).multiplyScalar(A.w));
+        }
+      }
+    }
+    saveOutputs();
+  }
+  const _q = new T.Quaternion();
+  function loadFiles(files) {
+    if (!T.GLTFLoader) { setMfStatus("The model loader couldn't load (blocked network). Reload the page to try again.", "bad"); return; }
+    const all = [...files], list = all.filter((f) => /\.glb$/i.test(f.name));
+    const aimF = all.find((f) => /marcus_aim\.json$/i.test(f.name));
+    if (aimF) aimF.text().then((t) => { const j = JSON.parse(t); if (j.libgears_aim) AIM.profiles = j.profiles; });
+    const snd = all.find((f) => /\.json$/i.test(f.name) && !/marcus_aim/i.test(f.name));
+    if (snd) snd.text().then((t) => SND.load(JSON.parse(t))).then((n) => setMfStatus(($("mf-status").textContent ? $("mf-status").textContent + " · " : "") + `${n} sounds`, "ok")).catch(() => setMfStatus(`${snd.name} isn't a gears_sounds.json`, "bad"));
+    if (!list.length) { if (!snd) setMfStatus("Choose the .glb files (and gears_sounds.json) from _local/exports/marcus/pack", "bad"); return; }
+    // Marcus first so the Lancer has a hand to go in
+    list.sort((a, b) => (/marcus/i.test(b.name) ? 1 : 0) - (/marcus/i.test(a.name) ? 1 : 0));
+    const done = [];
+    const next = () => {
+      const f = list.shift();
+      if (!f) { setMfStatus(done.join(" · "), "ok"); return; }
+      f.arrayBuffer().then((buf) => {
+        new T.GLTFLoader().parse(buf, "", (g) => { done.push(adoptGltf(g, f.name)); next(); },
+          (err) => { setMfStatus(`${f.name} couldn't be read: ${err && err.message ? err.message : err}`, "bad"); });
+      }).catch(() => setMfStatus(`${f.name} couldn't be read`, "bad"));
+    };
+    setMfStatus("Loading…", "");
+    next();
+  }
+  function setMfStatus(text, cls) { const el = $("mf-status"); el.textContent = text; el.className = "mf-status" + (cls ? " " + cls : ""); }
+  $("mf-file").addEventListener("change", (e) => { loadFiles(e.target.files); e.target.value = ""; });
+  stage.addEventListener("dragover", (e) => { e.preventDefault(); stage.classList.add("drop"); });
+  stage.addEventListener("dragleave", () => stage.classList.remove("drop"));
+  stage.addEventListener("drop", (e) => { e.preventDefault(); stage.classList.remove("drop"); if (e.dataTransfer) loadFiles(e.dataTransfer.files); });
+
+  const clipLen = (n) => (REAL.actions[n] ? REAL.actions[n].getClip().duration : 0);
+  const has = (n) => !!REAL.actions[n];
+  // Which clips to show now: { name: { w, t } } (t = driven time) or { w, rate } (looping).
+  function realTargets(dt) {
+    const name = ch.stateName(), a = ch.active, out = {};
+    if (ch.cover) REAL.coverH = ch.cover.spot.height === "Standing" ? "Std" : "Mid";
+    const H = REAL.coverH;
+    if (REAL.last === "Run2Cover" && name === "InCover") REAL.landAt = ch.time;
+    if (name === "RoadieRun" && REAL.last !== "RoadieRun") REAL.landAt = -999;
+    if (name === "CoverSlip" && REAL.last !== "CoverSlip") REAL.slipYaw = REAL.prevYaw;
+    if (name === "Vault" && REAL.last !== "Vault") REAL.vaultMirror = ch.mirrored;
+    REAL.last = name;
+    const set = (n, w, t, rate) => { if (has(n) || (REAL.adds && REAL.adds[n])) out[n] = { w, t, rate }; };
+    // Cycles share one step clock per group (like Gears' synch groups): the weapon layer
+    // and the walk/run blend stay in step with the legs instead of drifting apart.
+    const P = REAL.phase || (REAL.phase = { loco: 0, roadie: 0, cov: 0 });
+    const addLen = (n) => (REAL.adds && REAL.adds[n] ? REAL.adds[n].duration : 0);
+    const cycle = (key, n, add, w, rate) => {
+      set(n, w, P[key] * clipLen(n));
+      if (add) set(add, w, P[key] * addLen(add));
+      return rate / Math.max(clipLen(n), 1e-3);
+    };
+    if (name === "Walk") {
+      const s = G.len2d(ch.vel);
+      const idle = Math.max(0, 1 - s / 60), run = Math.min(1, Math.max(0, (s - 120) / 160));
+      const wW = (1 - idle) * (1 - run), wR = (1 - idle) * run;
+      set("Idle_Core", idle, 0);
+      set(aiming ? "ADD_AR_Idle_Ready_Aim" : "ADD_AR_Idle_Ready", idle, 0);
+      let fW;
+      if (aiming && has("AR_Walk_Fwd_Aim_Core")) {
+        // strafing: blend the four aimed walk cycles by where you move relative to where you face
+        const fx = Math.cos(ch.yaw), fy = Math.sin(ch.yaw), vl = Math.max(s, 1e-3);
+        const fwd = (ch.vel.x * fx + ch.vel.y * fy) / vl, rt = (-ch.vel.x * fy + ch.vel.y * fx) / vl;
+        const parts = [["Fwd", Math.max(0, fwd)], ["Bwd", Math.max(0, -fwd)], ["Rt", Math.max(0, rt)], ["Lt", Math.max(0, -rt)]];
+        const sum = parts.reduce((a, p) => a + p[1], 0) || 1;
+        fW = 0;
+        for (const [d, w] of parts) fW += cycle("loco", `AR_Walk_${d}_Aim_Core`, null, wW * w / sum, Math.max(0.6, s / 150)) * w / sum;
+        set("ADD_AR_Walk_Aim", wW, P.loco * addLen("ADD_AR_Walk_Aim"));
+      } else fW = cycle("loco", "AR_Walk_Fwd_Ready_Core", aiming ? "ADD_AR_Walk_Aim" : "ADD_AR_Walk_Ready", wW, Math.max(0.6, s / 160));
+      const fR = cycle("loco", "AR_Run_Fwd_Ready_Core", "ADD_AR_Run_Ready", wR, Math.max(0.7, s / 300));
+      if (wW + wR > 1e-3) P.loco = (P.loco + dt * (wW * fW + wR * fR) / (wW + wR)) % 1;
+    } else if (name === "RoadieRun") {
+      P.roadie = (P.roadie + dt * cycle("roadie", "Roadie_Run_Core", "ADD_AR_RoadieRun_Fwd", 1, 1)) % 1;
+    }
+    else if (name === "Run2Cover") set(`AR_Run_Fwd2Cov_${H}_Start`, 1, Math.min(1, a.elapsed / a.duration) * clipLen(`AR_Run_Fwd2Cov_${H}_Start`));
+    else if (name === "InCover" && aiming && H === "Mid" && has("AR_Cov_Mid_Idle_Ready2DownSights_Aim")) {
+      // aiming over mid cover: rise into the down-sights pose and hold it
+      const up = "AR_Cov_Mid_Idle_Ready2DownSights_Aim";
+      REAL.popT = Math.min(clipLen(up), (REAL.popT || 0) + dt);
+      set(up, 1, REAL.popT);
+    } else if (name === "InCover" && aiming) {
+      // standing cover: no lean-out yet, stand and aim
+      set("Idle_Core", 1, 0); set("ADD_AR_Idle_Ready_Aim", 1, 0);
+    } else if (name === "InCover") {
+      REAL.popT = 0;
+      const since = ch.time - REAL.landAt, stop = `AR_Run_Fwd2Cov_${H}_Stop`;
+      const s = G.len2d(ch.vel), mv = Math.min(1, s / 60);
+      if (since < clipLen(stop) && s < 10) set(stop, 1, since);
+      else {
+        // moving along the cover plays the cover run cycle at the walk speed
+        set(`Cov_${H}_Idle_Core`, 1 - mv, 0);
+        set(`ADD_AR_Cov_${H}_Idle_Ready`, 1, 0);
+        if (mv > 0.001) P.cov = (P.cov + dt * cycle("cov", `Cov_${H}_Run_Core`, null, mv, Math.max(0.5, s / 300))) % 1;
+      }
+    } else if (name === "CoverRun") {
+      P.cov = (P.cov + dt * cycle("cov", `Cov_${H}_Run_Core`, "ADD_AR_Cov_RoadieRun", 1, ch.cfg.cover_run_speed_mod)) % 1;
+    }
+    else if (name === "CoverSlip") set(`AR_Cov_${H}_Slip`, 1, a.elapsed * ch.cfg.slip_speed_mod);
+    else if (name === "SwatTurn") {
+      const st = `AR_Cov_${H}_SwatTurn_Start`, en = `AR_Cov_${H}_SwatTurn_End`, rate = ch.cfg.swat_anim_rate;
+      if (a.elapsed < a.split) set(st, 1, Math.min(a.elapsed * rate, clipLen(st)));
+      else {
+        const endTime = ch.cfg.swat_end_anim_length / rate, left = Math.min(1, (a.duration - a.split) / endTime);
+        const k = a.duration > a.split ? (a.elapsed - a.split) / (a.duration - a.split) : 1;
+        set(en, 1, ((1 - left) + k * left) * clipLen(en));
+      }
+    } else if (name === "Vault") {
+      // GSM_MantleOverCoverBase: jump anim at SpeedModifier (the Mirrored set when facing
+      // left, played through the mirror); fall anim timed to land (AdjustFallingPlayRate:
+      // sqrt(drop / |g|) + 0.07 s); land anim at SpeedModifier.
+      const M = REAL.vaultMirror ? "Mirrored_" : "", cfg = ch.cfg, rate = cfg.vault_speed_mod;
+      if (a.elapsed < a.split) set(`AR_Mantle_${M}Start`, 1, a.elapsed * rate);
+      else if (a.elapsed < a.land) {
+        const span = Math.sqrt(cfg.vault_rise / cfg.gravity) + 0.07, mid = `AR_Mantle_${M}Mid`;
+        set(mid, 1, Math.min(1, (a.elapsed - a.split) / span) * clipLen(mid));
+      } else set(`AR_Mantle_${M}End`, 1, (a.elapsed - a.land) * rate);
+    } else if (name === "PushOut") set(`AR_Cov_${H}_Idle2Idle_Ready_Aim`, 1, a.elapsed * ch.cfg.push_out_speed_mod);
+    else if (name.startsWith("Evade")) {
+      const d = name.slice(5), rate = ch.cfg.evade_speed_mod;
+      if (a.elapsed < a.split) set(`AR_Evade_${d}_Start`, 1, a.elapsed * rate);
+      else set(`AR_Evade_${d}_End`, 1, (a.elapsed - a.split) * rate);
+    }
+    // Gnasher pump: ADD_SG_Idle_Ready_Chamber by duration over the cocking time, replacing the hold layer
+    if (WPN.cur === "gnasher" && WPN.sinceShot >= WPN.cockAt && WPN.sinceShot < WPN.cockAt + WPN.cockLen && REAL.adds && REAL.adds.ADD_SG_Idle_Ready_Chamber && (name === "Walk" || name === "InCover")) {
+      for (const k of Object.keys(out)) if (k.startsWith("ADD_")) delete out[k];
+      set("ADD_SG_Idle_Ready_Chamber", 1, (WPN.sinceShot - WPN.cockAt) / WPN.cockLen * addLen("ADD_SG_Idle_Ready_Chamber"));
+    }
+    // roadie run steering: AnimSetMarcus_Overlay lean layers by the stick
+    if (name === "RoadieRun") {
+      const sx = lastInput ? lastInput.stick_x : 0;
+      if (sx > 0.05) set("ADD_Overlay_AR_RoadieRun_Lean_R", Math.min(1, sx), 0);
+      if (sx < -0.05) set("ADD_Overlay_AR_RoadieRun_Lean_L", Math.min(1, -sx), 0);
+    }
+    // reloading: the weapon's reload layer replaces the hold / aim layer, timed to ReloadDuration
+    if (WPN.reloading > 0 && REAL.adds && REAL.adds[WEAPONS[WPN.cur].reloadAnim]) {
+      for (const k of Object.keys(out)) if (k.startsWith("ADD_")) delete out[k];
+      const W = WEAPONS[WPN.cur];
+      if (WPN.arResult === 3 && REAL.adds[W.failAnim]) set(W.failAnim, 1, Math.min(WPN.rEl, addLen(W.failAnim)));
+      else if (WPN.arResult && WPN.arResult < 3 && W.successClip && REAL.adds[W.successClip]) set(W.successClip, 1, Math.min(WPN.rEl - WPN.arAt, addLen(W.successClip)));
+      else set(W.reloadAnim, 1, Math.min(1, WPN.rEl / WPN.rTotal) * addLen(W.reloadAnim));
+    }
+    return out;
+  }
+  // Aim offsets (GearAnim_AimOffset in Gears' AT_MarcusLayered, from your marcus_aim.json):
+  // per bone, 9 model-space rotations (left/centre/right × up/centre/down), blended
+  // bilinearly by where you aim and pre-multiplied onto the animated pose in model space.
+  const AIM = { profiles: null, w: 0, lastProf: null, map: (o, v) => o.set(-v[0], -v[1], -v[2], v[3]) }; // found by test: the inverse rotation in the skeleton frame (aim up raises the barrel)
+  const _sv = new T.Vector3(), _qa = new T.Quaternion(), _qb = new T.Quaternion(), _qm = new T.Quaternion(), _qp = new T.Quaternion();
+  function aimQuat(t, x, y, out) {
+    // bilinear over the 3×3 grid: x −1..1 = L..R, y −1..1 = D..U
+    const col = x >= 0 ? ["C", "R"] : ["C", "L"], row = y >= 0 ? ["C", "U"] : ["C", "D"], fx = Math.abs(x), fy = Math.abs(y);
+    const q = (c, r) => { const v = t[c + r]; return AIM.map(_qp, v); };
+    _qa.copy(q(col[0], row[0])).slerp(q(col[0], row[1]), fy);
+    _qb.copy(q(col[1], row[0])).slerp(q(col[1], row[1]), fy);
+    return out.copy(_qa).slerp(_qb, fx);
+  }
+  function applyAimOffset(dt, name) {
+    if (!AIM.profiles || !REAL.model) return;
+    const coverAimMid = name === "InCover" && aiming && REAL.coverH === "Mid";
+    const prof = AIM.profiles[coverAimMid ? "cover_mid" : "stand"];
+    const want = aiming && (name === "Walk" || coverAimMid) ? 1 : 0;
+    AIM.w += (want - AIM.w) * (1 - Math.exp(-dt / 0.1));
+    if (AIM.w < 0.01 || !prof) return;
+    // ASSUMPTION: Aim.Y = view pitch / 90°; Aim.X = 0 (the pawn turns to face the aim)
+    const y = Math.max(prof.v_range[0], Math.min(prof.v_range[1], cam.pitch / (Math.PI / 2)));
+    REAL.model.updateMatrixWorld(true);
+    REAL.model.getWorldQuaternion(_qm); _qm.invert();
+    const orig = new Map(), next = new Map();
+    // read every bone's original model-space rotation before changing any
+    REAL.model.traverse((o) => { if (o.isBone) { o.matrixWorld.decompose(_dv, _qb, _sv); orig.set(o, _qm.clone().multiply(_qb)); } });
+    const comp = (o) => orig.get(o) || _qa.identity();
+    REAL.model.traverse((o) => {
+      if (!o.isBone) return;
+      const parentNew = o.parent && next.get(o.parent);
+      const t = prof.bones[o.name] || prof.bones[o.name.replace(/^b_/, "B_")];
+      if (t) {
+        const target = aimQuat(t, 0, y, new T.Quaternion()).slerp(_qa.identity(), 1 - AIM.w).multiply(comp(o));
+        const pq = parentNew || (o.parent ? comp(o.parent) : _qa.identity());
+        o.quaternion.copy(pq.clone().invert().multiply(target));
+        next.set(o, target);
+      } else if (parentNew) next.set(o, parentNew.clone().multiply(o.quaternion));
+    });
+  }
+  const COVER_STATES = new Set(["InCover", "CoverRun", "CoverSlip", "SwatTurn", "PushOut", "Run2Cover"]);
+  function poseReal(dt) {
+    if (!REAL.mixer) return;
+    const tg = realTargets(dt), name = ch.stateName();
+    const blend = 1 - Math.exp(-dt / 0.06);
+    for (const [n, act] of Object.entries(REAL.actions)) {
+      const want = tg[n];
+      const w = (REAL.w[n] += ((want ? want.w : 0) - REAL.w[n]) * blend);
+      act.setEffectiveWeight(w < 0.002 ? 0 : w);
+      if (!want) continue;
+      if (want.t !== undefined) { act.paused = true; act.time = Math.max(0, Math.min(want.t, act.getClip().duration)); }
+      else { act.paused = false; act.timeScale = want.rate || 1; }
+    }
+    REAL.mixer.update(dt);
+    applyAdditives(dt, tg);
+    applyAimOffset(dt, name);
+    // Gears mirrors the cover anims (MirrorNode) when facing left along the cover
+    const coverAim = name === "InCover" && aiming && REAL.coverH !== "Mid";
+    const flip = coverAim ? false : name === "Vault" ? REAL.vaultMirror && ch.active.elapsed < ch.active.split : ch.mirrored && COVER_STATES.has(name);
+    REAL.wrap.scale.x = flip ? -100 : 100;
+    if (name === "CoverSlip") soldier.root.rotation.y = -REAL.slipYaw;
+    if (coverAim) soldier.root.rotation.y = -cam.yaw; // the anim turns him, not the pawn
+    REAL.prevYaw = ch.yaw;
+  }
+
+  // ---------------------------------------------------------- reach preview
+  function reachTarget(input) {
+    if (!showReach || aiming || ch.active || ch.cover) return null;
+    const cfg = ch.cfg, dz = cfg.dead_zone;
+    const m = Math.hypot(input.stick_x, input.stick_y);
+    let dir, side = false;
+    if (m > dz) {
+      if (Math.abs(input.stick_x) > Math.abs(input.stick_y)) side = true;
+      else if (input.stick_y < -dz) return null;
+      const w = ch.stickWorld({ ...input, cam_yaw: cam.yaw }), l = Math.hypot(w.x, w.y);
+      dir = G.V(w.x / l, w.y / l, 0);
+    } else dir = G.V(Math.cos(ch.yaw), Math.sin(ch.yaw), 0);
+    const reach = side ? cfg.run2cover_side_max_dist : cfg.run2cover_max_dist;
+    const spot = world.findCover(ch.pos, dir, reach);
+    return { spot, end: spot ? spot.location : G.V(ch.pos.x + dir.x * reach, ch.pos.y + dir.y * reach), reach };
+  }
+  const tag = $("reach-tag");
+  function drawReach(input) {
+    const r = reachTarget(input);
+    reachLine.visible = ring.visible = !!r; tag.hidden = !r;
+    if (!r) return;
+    const hot = !!r.spot;
+    const pts = reachGeo.attributes.position;
+    pts.setXYZ(0, ch.pos.y, 1.5, -ch.pos.x); pts.setXYZ(1, r.end.y, 1.5, -r.end.x); pts.needsUpdate = true;
+    reachLine.computeLineDistances();
+    reachMat.color.copy(stateColor(hot ? "Run2Cover" : "Walk")); reachMat.opacity = hot ? 0.95 : 0.35;
+    if (!hot) reachMat.color.set(tok("--ink-dim"));
+    ring.visible = hot;
+    ring.position.copy(toT(r.end.x, r.end.y, 1.6));
+    const sp = toT(r.end.x, r.end.y, 30).project(camera);
+    if (sp.z > 1) { tag.hidden = true; return; }
+    const w = stage.clientWidth, h = stage.clientHeight;
+    tag.style.left = ((sp.x + 1) / 2) * w + "px"; tag.style.top = ((1 - sp.y) / 2) * h + "px";
+    if (hot) {
+      const cfg = ch.cfg, d = Math.hypot(r.end.x - ch.pos.x, r.end.y - ch.pos.y);
+      const t = Math.max(d / (cfg.ground_speed * cfg.run2cover_speed_mod), cfg.run2cover_min_duration);
+      tag.textContent = `${Math.round(d)} uu · ${t.toFixed(2)} s`; tag.className = "tag";
+    } else { tag.textContent = `${r.reach} uu`; tag.className = "tag dim"; }
+  }
+
+  // ----------------------------------------------------------------- sounds
+  // Your own export (tools/gears_sound_pack.py → gears_sounds.json), decoded with Web Audio.
+  const SND = {
+    ctx: null, buf: {}, timers: [],
+    async load(j) {
+      if (!j || !j.sounds) throw new Error("not a sounds pack");
+      this.ensure();
+      let n = 0;
+      for (const [k, b64] of Object.entries(j.sounds)) {
+        const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        try { this.buf[k] = await this.ctx.decodeAudioData(bin.buffer); n++; } catch (_) { /* skip */ }
+      }
+      return n;
+    },
+    ensure() { if (!this.ctx) { const C = window.AudioContext || window.webkitAudioContext; if (C) this.ctx = new C(); } if (this.ctx && this.ctx.state === "suspended") this.ctx.resume(); },
+    play(name, vol = 1, loop = false) {
+      const b = this.buf[name]; if (!b || !this.ctx) return null;
+      const s = this.ctx.createBufferSource(), g = this.ctx.createGain();
+      s.buffer = b; s.loop = loop; g.gain.value = vol * 0.6; s.connect(g).connect(this.ctx.destination); s.start();
+      return { s, g };
+    },
+    later(name, delay, vol) { this.timers.push(setTimeout(() => this.play(name, vol), delay * 1000 / Math.max(TEST.speed, 0.05))); },
+    cancelLater() { this.timers.forEach(clearTimeout); this.timers = []; },
+  };
+  addEventListener("keydown", () => SND.ensure()); addEventListener("mousedown", () => SND.ensure());
+  // Movement sounds from the move log, footsteps from the step clock, Marcus's chatter.
+  const pick = (...n) => n[Math.floor(Math.random() * n.length)];
+  let sndEvent = 0, lastFoot = { loco: 0, roadie: 0 }, lastVault = false;
+  function movementSounds() {
+    if (sndEvent > ch.events.length) sndEvent = 0;   // level reset
+    while (sndEvent < ch.events.length) {
+      const e = ch.events[sndEvent++], std = ch.cover && ch.cover.spot.height === "Standing";
+      if (e.to === "Run2Cover") SND.play("Footsteps_Marcus_ConcreteSlide01", 0.6);
+      if (e.to === "InCover" && (e.from === "Run2Cover" || e.from === "RoadieRun")) SND.play(std ? "CogBodyCoverHighIn01" : pick("CogBodyCoverLowIn01", "CogBodyCoverLowIn03"), 0.8);
+      if (e.from === "InCover" && (e.to === "PushOut" || e.to.startsWith("Evade") || e.to === "CoverSlip")) SND.play(std ? "CogBodyCoverHighOut01" : "CogBodyCoverLowOut01", 0.6);
+      if (e.to.startsWith("Evade")) SND.play(pick("CogBodyRoll01", "CogBodyRoll02", "CogBodyRoll03"), 0.8);
+      if (e.to === "SwatTurn") SND.play(pick("CoverTurn01", "CoverTurn03"), 0.8);
+      if (e.to === "Vault") SND.play(pick("CoverCombat_LeapOver01", "CoverCombat_LeapOver02"), 0.8);
+    }
+    const a = ch.active, landed = a && a.kind === "Vault" && a.elapsed >= a.land;
+    if (landed && !lastVault) { SND.play("CoverCombat_Recover01", 0.7); SND.play("Footsteps_Marcus_ConcreteLand01", 0.7); }
+    lastVault = landed;
+    // two steps per cycle of the shared step clock
+    const P = REAL.phase, name = ch.stateName();
+    if (P) for (const [k, st] of [["loco", "Walk"], ["roadie", "RoadieRun"]]) {
+      const half = Math.floor(P[k] * 2);
+      if (half !== lastFoot[k] && name === st && G.len2d(ch.vel) > 40) SND.play(pick("Footsteps_Marcus_Concrete01", "Footsteps_Marcus_Concrete02", "Footsteps_Marcus_Concrete03", "Footsteps_Marcus_Concrete04"), name === "RoadieRun" ? 0.55 : 0.3);
+      lastFoot[k] = half;
+    }
+  }
+  // GUD-style chatter: ASSUMPTION chance and cooldown (GUDS' own tables aren't decoded)
+  const VOICE = { last: -99, kills: [] };
+  function say(lines, chance = 0.6) {
+    if (simTime - VOICE.last < 4 || Math.random() > chance) return;
+    VOICE.last = simTime; SND.play("MarcusChatter_" + pick(...lines), 1.0);
+  }
+  function onKill(close) {
+    VOICE.kills = VOICE.kills.filter((t) => simTime - t < 2.5); VOICE.kills.push(simTime);
+    if (VOICE.kills.length >= 2) { VOICE.last = -99; say(["ThatsATwofer_Loud01"], 1); return; }
+    if (close) say(["NothingButBits_Medium01", "RestInPieces_Loud01", "LookMaNoFace_Medium02", "AndStayDown_Medium02"]);
+    else say(["GotOne_Medium01", "Next_Loud01", "WhosNext_Loud01", "WhosNext_Medium02", "EatIt_Medium01", "SmokedHim_Medium02", "TooUglyToLive_Medium01", "ThatWasEasy_Medium01", "Gotcha_Medium02", "GoodNight_Loud01"]);
+  }
+  // Lancer: a fire loop while the trigger is held, then the stop tail (FireSound_Player / StopFireSound_Player)
+  function stopLoop(tail) {
+    if (!WPN.loop) return;
+    try { WPN.loop.s.stop(); } catch (_) { /* already stopped */ }
+    WPN.loop = null;
+    if (tail) SND.play("CogARifleFireStopPlayer01", 0.9);
+  }
+
+  // --------------------------------------------------------------- shooting
+  // Moves that can't fire (bCanFireWeapon false: roadie, slide, slip, swat, evade, vault).
+  const canAim = () => !ch.active || ch.active.kind === "PushOut";
+  const TGT_R = 34, TGT_H = 156;      // a pawn's cylinder (Default__Pawn)
+  let targets = [];
+  const tgtGeo = new T.CylinderGeometry(TGT_R, TGT_R, TGT_H, 20), tgtMat = new T.MeshStandardMaterial({ color: 0x7a5f4e, roughness: 0.8 });
+  function buildTargets(list) {
+    for (const t of targets) { scene.remove(t.mesh); t.bar.remove(); }
+    targets = list.map(([x, y]) => {
+      const mesh = new T.Mesh(tgtGeo, tgtMat.clone()); mesh.castShadow = true;
+      mesh.position.copy(toT(x, y, TGT_H / 2)); scene.add(mesh);
+      const bar = document.createElement("div"); bar.className = "hp"; bar.innerHTML = "<i></i>"; $("fx-layer").appendChild(bar);
+      return { x, y, hp: TARGET_HEALTH, dead: 0, mesh, bar };
+    });
+  }
+  // nearest hit along a ray: target cylinders, wall slabs (their visual height), floor
+  function trace(o, d) {
+    let best = { t: TRACE_RANGE, tgt: null };
+    for (const tg of targets) {
+      if (tg.dead > 0) continue;
+      const fx = o.x - tg.x, fy = o.y - tg.y, a = d.x * d.x + d.y * d.y;
+      if (a < 1e-9) continue;
+      const b = fx * d.x + fy * d.y, c = fx * fx + fy * fy - TGT_R * TGT_R, disc = b * b - a * c;
+      if (disc < 0) continue;
+      const t = (-b - Math.sqrt(disc)) / a, z = o.z + d.z * t;
+      if (t > 0 && t < best.t && z >= 0 && z <= TGT_H) best = { t, tgt: tg };
+    }
+    for (const w of world.walls) {
+      const n = G.V(w.normal.x, w.normal.y), nl = Math.hypot(n.x, n.y), nx = n.x / nl, ny = n.y / nl;
+      const den = d.x * nx + d.y * ny;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((w.a.x - o.x) * nx + (w.a.y - o.y) * ny) / den;
+      if (t <= 0 || t >= best.t) continue;
+      const px = o.x + d.x * t, py = o.y + d.y * t, z = o.z + d.z * t;
+      const sx = w.b.x - w.a.x, sy = w.b.y - w.a.y, L = Math.hypot(sx, sy), u = ((px - w.a.x) * sx + (py - w.a.y) * sy) / L;
+      if (u >= 0 && u <= L && z >= 0 && z <= (w.height === "Standing" ? FULL_H : MID_H)) best = { t, tgt: null };
+    }
+    if (d.z < 0) { const t = -o.z / d.z; if (t > 0 && t < best.t) best = { t, tgt: null }; }
+    best.p = G.V(o.x + d.x * best.t, o.y + d.y * best.t, o.z + d.z * best.t);
+    return best;
+  }
+  const dirOf = (yaw, pitch) => G.V(Math.cos(pitch) * Math.cos(yaw), Math.cos(pitch) * Math.sin(yaw), Math.sin(pitch));
+  function muzzle() {
+    const w = REAL.weapons && REAL.weapons[WPN.cur];
+    if (w && w.visible) { const v = new T.Vector3(); w.getWorldPosition(v); const f = dirOf(cam.yaw, cam.pitch); return G.V(-v.z + f.x * 55, v.x + f.y * 55, v.y + f.z * 55); }
+    return G.V(ch.pos.x + Math.cos(ch.yaw) * 50, ch.pos.y + Math.sin(ch.yaw) * 50, 120 + ch.height());
+  }
+  function fire() {
+    const W = WEAPONS[WPN.cur], am = WPN.ammo[WPN.cur];
+    am.mag--; WPN.cooldown = 60 / W.rpm; WPN.flash = 0.05;
+    const mult = WPN.bonus > 0 ? W.ar.mult : 1;   // perfect active reload bonus
+    if (W.pellets) {
+      SND.play("ShotgunFirePlayer0" + (1 + Math.floor(Math.random() * 3)));
+      // GearWeap_Shotgun: firing state 0.25 × interval, then ShotgunCocking for 0.75 × interval:
+      // pawn BS_PawnShotgunCock + gun WeaponCockAnim by duration; cock sound at ShotgunCockDelay,
+      // shell bounce at ShotgunCockShellImpactDelay into the cocking
+      const iv = 60 / W.rpm;
+      WPN.cockAt = iv * 0.25; WPN.cockLen = iv * 0.75; WPN.sinceShot = 0;
+      setTimeout(() => { if (WPN.cur === "gnasher") gunAnim("SG_Chamber", WPN.cockLen); }, WPN.cockAt * 1000 / Math.max(TEST.speed, 0.05));
+      SND.later("shotguncock01", iv * 0.25 + 0.3, 0.8);
+      SND.later("ShotgunAmmoBounce0" + (1 + Math.floor(Math.random() * 2)), iv * 0.25 + 0.7, 0.5);
+    } else {
+      if (!WPN.loop) WPN.loop = SND.play("CogARifleFireLoopPlayer01", 0.9, true);
+      gunAnim("AR_Fire");
+    }
+    // trace from the camera (GetWeaponStartTraceLocation), started at the pawn's depth
+    const f = dirOf(cam.yaw, cam.pitch), cp = cam.pos;
+    const k = Math.max(0, (ch.pos.x - cp.x) * f.x + (ch.pos.y - cp.y) * f.y);
+    const o = G.V(cp.x + f.x * k, cp.y + f.y * k, cp.z + f.z * k);
+    // aim error: GetPlayerAimError = Lerp(WeaponAimError.X, .Y, Accuracy); ASSUMPTION: degrees, uniform in a cone
+    const err = (W.aimError[0] + (W.aimError[1] - W.aimError[0]) * WPN.accuracy) * Math.PI / 180;
+    const ang = Math.random() * TAU, rad = Math.sqrt(Math.random()) * err;
+    const yaw = cam.yaw + Math.cos(ang) * rad, pitch = cam.pitch + Math.sin(ang) * rad;
+    const hits = new Map(), mz = muzzle();
+    if (W.pellets) {
+      // FireAllPellets: spread × 0.5 aiming (1.5 s after an evade), × 1.1 just after one, else 0.9 + 0.2 × speed / GroundSpeed
+      const sinceEvade = ch.time - ch.lastEvadeTime;
+      const mod = aiming && sinceEvade > 1.5 ? 0.5 : sinceEvade < 1.5 ? 1.1 : 0.9 + 0.2 * G.len2d(ch.vel) / ch.cfg.ground_speed;
+      W.pellets.forEach(([py, pp], i) => {
+        const h = trace(o, dirOf(yaw + py * mod * URAD, pitch + pp * mod * URAD));
+        if (h.tgt) { const e = hits.get(h.tgt) || { n: 0, p: h.p }; e.n++; hits.set(h.tgt, e); }
+        if (i === 0 || i % 2 === 1) tracer(mz, h.p); // tracers on pellet 0 and the odd ones
+      });
+      // SetTransientShotgunDamage: full damage at ≥ 75 % of pellets, else by share; × 1.2 inside 256 uu
+      for (const [tg, e] of hits) {
+        let dmg = e.n >= W.pellets.length * 0.75 ? W.damage : W.damage * e.n / W.pellets.length;
+        if (Math.hypot(tg.x - ch.pos.x, tg.y - ch.pos.y) < 256) dmg *= 1.2;
+        damage(tg, Math.round(dmg * mult * rangeMod(W, Math.hypot(e.p.x - ch.pos.x, e.p.y - ch.pos.y, e.p.z - PAWN_HALF))), e.p);
+      }
+    } else {
+      const h = trace(o, dirOf(yaw, pitch));
+      tracer(mz, h.p);
+      if (h.tgt) damage(h.tgt, Math.round(W.damage * mult * rangeMod(W, Math.hypot(h.p.x - ch.pos.x, h.p.y - ch.pos.y, h.p.z - PAWN_HALF))), h.p);
+    }
+    // WeaponRecoil: ASSUMPTION: an upward camera kick of that many Unreal rotation units
+    cam.pitch = Math.min(PITCH_LIMIT, cam.pitch + W.recoil * URAD);
+    if (am.mag <= 0) startReload();
+  }
+  function startReload() {
+    const W = WEAPONS[WPN.cur], am = WPN.ammo[WPN.cur];
+    if (WPN.reloading > 0 || am.mag >= W.mag || am.spare <= 0) return;
+    gunAnim(WPN.cur === "lancer" ? "AR_Reload" : "SG_Reload", W.reload);
+    WPN.reloading = WPN.reloadLen = WPN.rTotal = W.reload; WPN.rEl = 0; WPN.arResult = 0;
+    stopLoop(true);
+    if (WPN.cur === "lancer") { SND.play("CogRifleReloadArm01", 0.8); SND.later("CogRifleReloadInsert01", 1.45, 0.8); }
+    else { SND.play("ShotgunReloadEject01", 0.8); SND.later("ShotgunReloadInsert01", 1.2, 0.8); SND.later("ShotgunReloadArm01", 2.4, 0.8); }
+  }
+  const arWindows = (W) => { const sup = AR_SUPER[Math.min(WPN.arTier, 2)]; return [W.ar.start, W.ar.start + sup, W.ar.start + sup + W.ar.sweet]; };
+  function tryActiveReload() {
+    const W = WEAPONS[WPN.cur];
+    if (WPN.reloading <= 0 || WPN.arResult) return;
+    const t = WPN.rEl, [p0, p1, g1] = arWindows(W), left = WPN.rTotal - t;
+    const r = t >= p0 && t <= p1 ? 2 : t > p1 && t <= g1 ? 1 : 3;
+    if (r !== 3) {
+      WPN.rTotal = t + (W.ar.successAnim || left / (r === 2 ? AR_SUPER_SPEEDUP : AR_SPEEDUP));
+      if (r === 2) { WPN.bonus = W.ar.bonus; WPN.arTier = Math.min(WPN.arTier + 1, 2); }
+      { const m = REAL.wmix && REAL.wmix[WPN.cur], ra = WPN.cur === "lancer" ? "AR_Reload" : "SG_Reload";
+        if (W.successClip) gunAnim("SG_Reload_Success", WPN.rTotal - t);
+        else if (m && m.acts[ra]) m.acts[ra].timeScale *= r === 2 ? AR_SUPER_SPEEDUP : AR_SPEEDUP; }
+      SND.play(r === 2 ? "ActiveReloadSuperSuccess02" : "ActiveReloadSuccess03");
+      SND.cancelLater();
+      SND.later(WPN.cur === "lancer" ? "CogRifleReloadInsert01" : "ShotgunReloadArm01", (WPN.rTotal - t) * 0.6, 0.8);
+    } else {
+      WPN.arTier = 0; WPN.bonus = 0; WPN.rTotal = Math.max(t, AR_FAIL_ANIM);
+      const m = REAL.wmix && REAL.wmix[WPN.cur], fa = WPN.cur === "lancer" ? "AR_Reload_Fumble" : "SG_Reload_Fail";
+      if (m && m.acts[fa]) { for (const a of Object.values(m.acts)) a.stop(); m.acts[fa].reset().play(); m.acts[fa].time = t; }
+      SND.play("ActiveReloadChunk");   // ASSUMPTION: the fail cue's wave (ActiveReloadFailCue isn't decoded)
+    }
+    WPN.reloading = WPN.rTotal - t; WPN.arResult = r; WPN.arAt = t;
+  }
+  function damage(tg, dmg, p) {
+    tg.hp -= dmg; WPN.hitT = 0.15;
+    if (Math.random() < (WPN.cur === "lancer" ? 0.35 : 1)) SND.play(WPN.cur === "lancer" ? "RifleAmmoImpactBodyFlesh01" : "ShotgunAmmoImpactBodyFlesh01", 0.5);
+    popup(String(dmg), p);
+    if (tg.hp <= 0) { tg.dead = 3; tg.hp = 0; onKill(WPN.cur === "gnasher" && Math.hypot(tg.x - ch.pos.x, tg.y - ch.pos.y) < 300); }
+  }
+  function tickWeapons(input, dt) {
+    const W = WEAPONS[WPN.cur], am = WPN.ammo[WPN.cur];
+    // accuracy: ASSUMPTION: 0 (tight) aiming and nearly still, else 1, eased at Inaccuracy_Interp_Base_Speed
+    const want = input.aim && G.len2d(ch.vel) < 20 ? 0 : 1;
+    WPN.accuracy += (want - WPN.accuracy) * Math.min(1, INACCURACY_INTERP * dt);
+    WPN.cooldown = Math.max(0, WPN.cooldown - dt);
+    WPN.flash = Math.max(0, WPN.flash - dt); WPN.hitT = Math.max(0, WPN.hitT - dt);
+    if (input.swap && !WPN.prevSwap && canAim()) { WPN.cur = WPN.cur === "lancer" ? "gnasher" : "lancer"; WPN.reloading = 0; WPN.cooldown = 0.3; stopLoop(false); SND.cancelLater(); showWeapon(); SND.play(WPN.cur === "lancer" ? "CogRifleRaise" : "ShotgunRaise01", 0.8); say(["ThisWillDo_Medium01", "ArmedAndReady_Medium03", "ReadyAndWaiting_Medium01"], 0.3); }
+    WPN.prevSwap = input.swap;
+    if (input.reload && !WPN.prevReload) { if (WPN.reloading > 0) tryActiveReload(); else startReload(); }
+    WPN.bonus = Math.max(0, WPN.bonus - dt);
+    WPN.sinceShot = (WPN.sinceShot ?? 99) + dt;
+    if (REAL.wmix) for (const m of Object.values(REAL.wmix)) m.mx.update(dt);
+    WPN.prevReload = input.reload;
+    if (WPN.reloading > 0) {
+      WPN.reloading -= dt; WPN.rEl += dt;
+      if (WPN.reloading <= 0) { WPN.reloading = 0; const n = Math.min(W.mag - am.mag, am.spare); am.mag += n; am.spare -= n; }
+    } else if (input.fire && canAim() && WPN.cooldown <= 0 && am.mag > 0 && (W.auto || !WPN.lastFire)) fire();
+    else if (input.fire && !WPN.lastFire && am.mag === 0) SND.play("CogRifleFireEmpty04", 0.7);
+    if (WPN.loop && (!input.fire || am.mag === 0 || WPN.reloading > 0 || !canAim())) stopLoop(true);
+    WPN.lastFire = input.fire;
+    for (const tg of targets) if (tg.dead > 0) { tg.dead -= dt; if (tg.dead <= 0) { tg.dead = 0; tg.hp = TARGET_HEALTH; } }
+  }
+  // effects: tracers, muzzle flash, damage numbers, target bars
+  const tracers = [], tracerMat = new T.LineBasicMaterial({ color: 0xffd28a, transparent: true });
+  function tracer(a, b) {
+    const g = new T.BufferGeometry().setFromPoints([toT(a.x, a.y, a.z), toT(b.x, b.y, b.z)]);
+    const l = new T.Line(g, tracerMat.clone()); scene.add(l); tracers.push({ l, t: 0.07 });
+  }
+  const flash = new T.PointLight(0xffc070, 0, 400); scene.add(flash);
+  const popups = [];
+  function popup(text, p) { const el = document.createElement("div"); el.className = "dmg"; el.textContent = text; $("fx-layer").appendChild(el); popups.push({ el, p: { ...p }, t: 0.8 }); }
+  function screenOf(p) { const v = toT(p.x, p.y, p.z).project(camera); return v.z > 1 ? null : [(v.x + 1) / 2 * stage.clientWidth, (1 - v.y) / 2 * stage.clientHeight]; }
+  function tickFx(dt) {
+    for (let i = tracers.length - 1; i >= 0; i--) { const r = tracers[i]; r.t -= dt; r.l.material.opacity = Math.max(0, r.t / 0.07); if (r.t <= 0) { scene.remove(r.l); r.l.geometry.dispose(); tracers.splice(i, 1); } }
+    if (WPN.flash > 0) { flash.position.copy((() => { const m = muzzle(); return toT(m.x, m.y, m.z); })()); flash.intensity = 2.5; } else flash.intensity = 0;
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const q = popups[i]; q.t -= dt; q.p.z += 60 * dt;
+      const sp = screenOf(q.p);
+      if (q.t <= 0 || !sp) { q.el.remove(); popups.splice(i, 1); continue; }
+      q.el.style.left = sp[0] + "px"; q.el.style.top = sp[1] + "px"; q.el.style.opacity = Math.min(1, q.t * 2);
+    }
+    for (const tg of targets) {
+      tg.mesh.rotation.x = tg.dead > 0 ? Math.min(Math.PI / 2, (3 - tg.dead) * 6) : 0;
+      tg.mesh.position.y = tg.dead > 0 ? TGT_R : TGT_H / 2;
+      const sp = tg.dead > 0 ? null : screenOf(G.V(tg.x, tg.y, TGT_H + 20));
+      tg.bar.style.display = sp ? "block" : "none";
+      if (sp) { tg.bar.style.left = sp[0] + "px"; tg.bar.style.top = sp[1] + "px"; tg.bar.firstChild.style.width = (tg.hp / TARGET_HEALTH * 100) + "%"; }
+    }
+  }
+
+  // ------------------------------------------------------------------- map
+  const map = $("map"), mctx = map.getContext("2d");
+  function drawMap(input) {
+    const dpr = Math.min(devicePixelRatio || 1, 2), w = map.clientWidth, h = map.clientHeight;
+    if (map.width !== Math.round(w * dpr)) { map.width = Math.round(w * dpr); map.height = Math.round(h * dpr); }
+    const g = mctx; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = tok("--floor"); g.fillRect(0, 0, w, h);
+    const z = 0.16, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    // camera forward = up on the map
+    const P = (p) => {
+      const dx = p.x - ch.pos.x, dy = p.y - ch.pos.y;
+      const f = dx * cy + dy * sy, r = -dx * sy + dy * cy;
+      return [w / 2 + r * z, h / 2 - f * z];
+    };
+    g.lineCap = "round";
+    for (const wl of world.walls) {
+      const [ax, ay] = P(wl.a), [bx, by] = P(wl.b);
+      g.strokeStyle = tok("--wall"); g.lineWidth = wl.height === "Standing" ? 5 : 3.5;
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+      const n = wl.normal, nl = Math.hypot(n.x, n.y);
+      const [cx2, cy2] = P(G.V(wl.a.x + n.x / nl * 10, wl.a.y + n.y / nl * 10)), [dx2, dy2] = P(G.V(wl.b.x + n.x / nl * 10, wl.b.y + n.y / nl * 10));
+      g.strokeStyle = tok("--cover-edge"); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(cx2, cy2); g.lineTo(dx2, dy2); g.stroke();
+    }
+    const r = reachTarget(input);
+    if (r) {
+      const [ex, ey] = P(r.end);
+      g.strokeStyle = r.spot ? tok("--hot") : tok("--ink-dim"); g.setLineDash([3, 3]); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(w / 2, h / 2); g.lineTo(ex, ey); g.stroke(); g.setLineDash([]);
+    }
+    // camera position and view cone
+    const [kx, ky] = P(cam.pos);
+    const half = Math.atan(Math.tan(cam.fov * Math.PI / 360));
+    g.fillStyle = "rgba(230,225,214,0.07)";
+    g.beginPath(); g.moveTo(kx, ky); g.lineTo(kx - Math.tan(half) * 120, ky - 120); g.lineTo(kx + Math.tan(half) * 120, ky - 120); g.closePath(); g.fill();
+    g.fillStyle = tok("--ink-dim"); g.fillRect(kx - 2, ky - 2, 4, 4);
+    // character
+    const col = tok(STATE_COLOR[ch.stateName()] || "--cool"), rel = ch.yaw - cam.yaw;
+    g.save(); g.translate(w / 2, h / 2); g.rotate(rel);
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, -9); g.lineTo(5.5, 5); g.lineTo(-5.5, 5); g.closePath(); g.fill();
+    g.restore();
+  }
+
+  // ------------------------------------------------------------------- HUD
+  const logEl = $("log");
+  const fmtV = (v) => "(" + v.map((n) => String(Math.round(n)).replace("-", "−")).join(", ") + ")";
+  function hud(input) {
+    const name = ch.stateName();
+    $("st-name").textContent = name;
+    $("st-name").style.color = tok(STATE_COLOR[name] || "--cool");
+    $("st-time").textContent = `${(ch.time - stateSince).toFixed(2)} s`;
+    const a = ch.active;
+    const v = a && (a.kind === "Run2Cover" || a.kind === "CoverSlip" || a.kind === "SwatTurn" || a.kind.startsWith("Evade"))
+      ? (a.duration > 0 ? Math.hypot(a.target.x - a.start.x, a.target.y - a.start.y) / a.duration : 0)
+      : G.len2d(ch.vel);
+    $("spd").textContent = Math.round(v);
+    const fill = $("spd-fill");
+    fill.style.width = Math.min(100, (v / 720) * 100) + "%";
+    fill.style.background = tok(STATE_COLOR[name] || "--cool");
+    $("stick-dot").style.left = 50 + input.stick_x * 42 + "%"; $("stick-dot").style.top = 50 - input.stick_y * 42 + "%";
+    $("look-dot").style.left = 50 + input.look_x * 42 + "%"; $("look-dot").style.top = 50 - input.look_y * 42 + "%";
+    $("a-ind").classList.toggle("on", input.a);
+    $("src").textContent = input.src;
+    const W = WEAPONS[WPN.cur], am = WPN.ammo[WPN.cur];
+    $("wpn-name").textContent = W.name;
+    $("wpn-ammo").textContent = WPN.reloading > 0 ? "reloading" : `${am.mag} / ${am.spare}`;
+    const rel = WPN.reloading > 0;
+    $("wpn-bar").style.width = (rel ? 0 : am.mag / W.mag * 100) + "%";
+    // Gears' active reload bar: the zone over the normal reload length, a marker sweeping it
+    const [p0, p1, g1] = arWindows(W), pct = (x) => (x / W.reload * 100) + "%", showZones = rel && !WPN.arResult;
+    for (const [id, a, b] of [["ar-good", p1, g1], ["ar-perfect", p0, p1]]) { const e = $(id); e.style.display = showZones ? "block" : "none"; e.style.left = pct(a); e.style.width = pct(b - a); }
+    $("ar-mark").style.display = rel ? "block" : "none"; $("ar-mark").style.left = pct(Math.min(WPN.arResult ? WPN.arAt : WPN.rEl, W.reload));
+    $("ar-msg").textContent = rel ? ["", "Good", "Perfect", "Jammed"][WPN.arResult] || "Press reload in the zone" : WPN.bonus > 0 ? `Damage up ${WPN.bonus.toFixed(1)} s` : "";
+    $("wpn").classList.toggle("bonus", WPN.bonus > 0);
+    $("xhair").className = "xhair" + (aiming ? " aim" : "") + (WPN.hitT > 0 ? " hit" : "");
+    $("cam-mode").textContent = cam.mode.name + (evading() ? " + evade" : "");
+    $("cam-fov").textContent = Math.round(cam.fov) + "°";
+    $("cam-off").textContent = fmtV(cam.offset);
+    while (lastEvent < ch.events.length) {
+      const e = ch.events[lastEvent++];
+      stateSince = e.time;
+      $("st-reason").textContent = e.reason;
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${e.time.toFixed(3)}</span><span><b>${e.to}</b> ← ${e.from} · ${e.reason}</span>`;
+      logEl.prepend(li);
+      while (logEl.children.length > 12) logEl.lastChild.remove();
+    }
+  }
+
+  // ------------------------------------------------------------------ loop
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(1, h);
+  }
+  new ResizeObserver(resize).observe(stage);
+
+  let acc = 0, last = performance.now(), lastInput = rawInput(), simTime = 0;
+  function frame(now) {
+    const real = Math.min(0.1, (now - last) / 1000) * TEST.speed; last = now; acc += real;
+    while (acc >= DT) {
+      lastInput = readInput();
+      lastInput.aim = lastInput.aim && canAim();
+      ch.tick({ stick_x: lastInput.stick_x, stick_y: lastInput.stick_y, cam_yaw: cam.yaw, a: lastInput.a, aim: lastInput.aim && !ch.cover }, DT, world);
+      pushOut();
+      stepCamera(lastInput, DT);
+      tickWeapons(lastInput, DT);
+      movementSounds();
+      if (trailN < TRAIL) trailN++; else { trailPos.copyWithin(0, 3); trailCol.copyWithin(0, 3); }
+      const i = (trailN - 1) * 3, c = stateColor(ch.stateName());
+      trailPos[i] = ch.pos.y; trailPos[i + 1] = 1; trailPos[i + 2] = -ch.pos.x;
+      trailCol[i] = c.r; trailCol[i + 1] = c.g; trailCol[i + 2] = c.b;
+      simTime += DT; acc -= DT;
+    }
+    trailGeo.setDrawRange(0, trailN);
+    trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.color.needsUpdate = true;
+    poseSoldier(real);
+    poseReal(real);
+    placeCamera(simTime);
+    sun.position.copy(toT(ch.pos.x - 900, ch.pos.y - 500, 1600)); sun.target.position.copy(toT(ch.pos.x, ch.pos.y, 0));
+    drawReach(lastInput);
+    tickFx(real);
+    renderer.render(scene, camera);
+    drawMap(lastInput);
+    hud(lastInput);
+    requestAnimationFrame(frame);
+  }
+
+  for (const k of Object.keys(LEVELS)) $("lv-" + k).addEventListener("click", (e) => { load(k); e.currentTarget.blur(); canvas.focus(); });
+  $("btn-reset").addEventListener("click", (e) => { load(levelKey); e.currentTarget.blur(); canvas.focus(); });
+  $("btn-reach").addEventListener("click", (e) => {
+    showReach = !showReach; e.currentTarget.setAttribute("aria-pressed", String(showReach)); e.currentTarget.blur(); canvas.focus();
+  });
+
+  resize(); setupTouch(); load("lane"); updateHint();
+  window.__range = { get ch() { return ch; }, cam, load, REAL, TEST, WPN, SND, AIM, get targets() { return targets; } }; // for automated checks
+  requestAnimationFrame(frame);
+})();
+</script>

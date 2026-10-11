@@ -1,0 +1,9 @@
+[package]
+name = "gears_cli"
+description = "Headless runner: plays scripted inputs through gears_core and prints the state log."
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+gears_core = { path = "../gears_core" }

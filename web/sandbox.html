@@ -1,0 +1,513 @@
+<title>libgears Test Range</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: a test range. The floor (canvas) is the page; one instrument rail on the
+   right (bottom on phones) carries state, speed against Gears' real speed marks, the
+   input readout and the move log. Single dark look by choice: a lit range at night. */
+:root {
+  color-scheme: dark;
+  --floor: #14171b;        /* concrete in shadow */
+  --floor-grid: #20252b;
+  --floor-grid-major: #2b323a;
+  --rail: #1b1f24;
+  --rail-line: #2c333b;
+  --ink: #e6e1d6;          /* chalk */
+  --ink-dim: #9a968c;
+  --wall: #7b8088;         /* cast concrete */
+  --cover-edge: #e9b44c;   /* range paint, amber */
+  --hot: #ef7d4a;          /* slide / evade */
+  --cool: #6fb4c8;         /* walking */
+  --good: #8fbf6a;         /* in cover */
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+html, body { height: 100%; }
+body {
+  background: var(--floor); color: var(--ink); font-family: var(--font-body);
+  margin: 0; overflow: hidden;
+}
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 320px; height: 100%; }
+.stage { position: relative; min-width: 0; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.badge {
+  position: absolute; left: 16px; top: 14px; display: flex; flex-direction: column; gap: 2px;
+  pointer-events: none;
+}
+.badge h1 {
+  margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 26px;
+  letter-spacing: .04em; text-transform: uppercase; line-height: 1;
+}
+.badge p { margin: 0; font-size: 12px; color: var(--ink-dim); max-width: 46ch; }
+.levels {
+  position: absolute; left: 16px; bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px;
+}
+button {
+  font: 500 13px var(--font-body); color: var(--ink); background: var(--rail);
+  border: 1px solid var(--rail-line); border-radius: 3px; padding: 7px 11px; cursor: pointer;
+}
+button:hover { border-color: var(--ink-dim); }
+button:focus-visible { outline: 2px solid var(--cover-edge); outline-offset: 2px; }
+button[aria-pressed="true"] { border-color: var(--cover-edge); color: var(--cover-edge); }
+
+.rail {
+  background: var(--rail); border-left: 1px solid var(--rail-line);
+  display: flex; flex-direction: column; gap: 18px; padding: 16px; overflow-y: auto; min-width: 0;
+}
+.label {
+  font: 600 11px var(--font-display); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-dim); margin: 0 0 6px;
+}
+.state {
+  font: 700 40px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.state small { font: 400 12px var(--font-mono); color: var(--ink-dim); text-transform: none; letter-spacing: 0; }
+.reason { font: 400 12px var(--font-mono); color: var(--ink-dim); margin-top: 6px; min-height: 1.4em; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.speed-read { display: flex; align-items: baseline; gap: 6px; }
+.speed-read b { font: 700 30px var(--font-display); font-variant-numeric: tabular-nums; }
+.speed-read span { font: 400 12px var(--font-mono); color: var(--ink-dim); }
+.scale { position: relative; height: 34px; margin-top: 6px; }
+.scale .track { position: absolute; left: 0; right: 0; top: 8px; height: 6px; background: var(--floor); border-radius: 1px; }
+.scale .fill { position: absolute; left: 0; top: 8px; height: 6px; background: var(--cool); width: 0; border-radius: 1px; }
+.scale .tick { position: absolute; top: 4px; width: 1px; height: 14px; background: var(--ink-dim); }
+.scale .tick i {
+  position: absolute; top: 15px; transform: translateX(-50%); font: 400 10px var(--font-mono);
+  font-style: normal; color: var(--ink-dim); white-space: nowrap;
+}
+
+.inputs { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; }
+.stickpad { width: 64px; height: 64px; border: 1px solid var(--rail-line); border-radius: 50%; position: relative; }
+.stickpad .dz { position: absolute; inset: 40%; border-radius: 50%; border: 1px dashed var(--rail-line); }
+.stickpad .dot { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: var(--ink); left: 50%; top: 50%; }
+.abtn {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 16px var(--font-display); border: 2px solid var(--good); color: var(--good);
+}
+.abtn.on { background: var(--good); color: var(--rail); }
+.inputs .src { font: 400 12px var(--font-mono); color: var(--ink-dim); }
+
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px;
+  font: 400 11.5px/1.35 var(--font-mono); font-variant-numeric: tabular-nums; }
+.log li { display: grid; grid-template-columns: 52px 1fr; gap: 8px; color: var(--ink-dim); }
+.log li b { font-weight: 500; color: var(--ink); }
+.log li:first-child b { color: var(--cover-edge); }
+
+.keys { font-size: 12.5px; color: var(--ink-dim); display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; }
+.keys dt { font: 500 12px var(--font-mono); color: var(--ink); }
+.keys dd { margin: 0; }
+.note { font-size: 12px; color: var(--ink-dim); line-height: 1.45; margin: 0; }
+
+.touch { position: absolute; inset: auto 0 0 0; height: 0; }
+.tstick, .ta {
+  position: absolute; bottom: 72px; width: 120px; height: 120px; border-radius: 50%;
+  border: 1px solid var(--rail-line); background: color-mix(in srgb, var(--rail) 70%, transparent);
+}
+.tstick { left: 20px; }
+.ta { right: 24px; width: 84px; height: 84px; bottom: 90px; display: grid; place-items: center;
+  font: 700 28px var(--font-display); color: var(--good); border-color: var(--good); }
+.ta.on { background: var(--good); color: var(--rail); }
+
+@media (max-width: 760px) {
+  body { overflow: auto; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 62vh auto; height: auto; }
+  .stage { height: 62vh; }
+  .rail { border-left: 0; border-top: 1px solid var(--rail-line); }
+  .levels { bottom: auto; top: 70px; }
+}
+@media (prefers-reduced-motion: reduce) { .scale .fill { transition: none; } }
+</style>
+
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="floor" aria-label="Top-down test range. The character moves with Gears of War 3 movement rules."></canvas>
+    <div class="badge">
+      <h1>libgears test range</h1>
+      <p>Gears of War 3 movement rules, running live. Grid squares are 100 uu.</p>
+    </div>
+    <div class="levels" role="group" aria-label="Range layout">
+      <button id="lv-lane" aria-pressed="true">Bounce lane</button>
+      <button id="lv-edges" aria-pressed="false">Short walls</button>
+      <button id="lv-yard" aria-pressed="false">Open yard</button>
+      <button id="btn-reach" aria-pressed="true">Show cover reach</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+    <div class="touch" id="touch" hidden>
+      <div class="tstick" id="tstick"></div>
+      <div class="ta" id="ta">A</div>
+    </div>
+  </div>
+
+  <aside class="rail" aria-label="Instruments">
+    <section>
+      <p class="label">Move</p>
+      <div class="state"><span id="st-name">Walk</span><small id="st-time">0.00 s</small></div>
+      <div class="reason" id="st-reason">Tap A toward a wall to slide into cover.</div>
+    </section>
+
+    <section>
+      <p class="label">Ground speed</p>
+      <div class="speed-read"><b id="spd">0</b><span>uu/s</span></div>
+      <div class="scale" aria-hidden="true">
+        <div class="track"></div><div class="fill" id="spd-fill"></div>
+        <div class="tick" style="left:41.7%"><i>300 run</i></div>
+        <div class="tick" style="left:66.7%"><i>480 roadie</i></div>
+        <div class="tick" style="left:95.8%"><i style="transform:translateX(-88%)">690 slide</i></div>
+      </div>
+    </section>
+
+    <section>
+      <p class="label">Input</p>
+      <div class="inputs">
+        <div class="stickpad"><div class="dz"></div><div class="dot" id="stick-dot"></div></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="abtn" id="a-ind">A</div>
+          <div class="src" id="src">Keyboard</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <p class="label">Move log</p>
+      <ol class="log" id="log"></ol>
+    </section>
+
+    <section>
+      <p class="label">Controls</p>
+      <dl class="keys">
+        <dt>Stick</dt><dd>Left stick, or WASD / arrow keys</dd>
+        <dt>A</dt><dd>Controller A, or Space</dd>
+        <dt>Tap A</dt><dd>Slide into cover in reach, else evade</dd>
+        <dt>Hold A</dt><dd>Roadie run (after 0.3 s); into a wall = cover</dd>
+        <dt>In cover</dt><dd>Pull the stick away from the wall to push off it. At an edge: stick toward the wall + A = cover slip, stick along the wall + A = swat turn to cover across a gap (else evade out). Tap A again during a swat and hold it = roadie run out of it. Hold A = run along cover. On waist-high cover: stick toward the wall + A = vault over</dd>
+        <dt>R</dt><dd>Reset</dd>
+      </dl>
+    </section>
+
+    <section>
+      <p class="label">What's real here</p>
+      <p class="note">Speeds, timings, reach distances and which moves can chain come from Gears 3's own code and settings. Slip and evade distances are placeholders until the animations are exported. Walls are drawn but not yet solid for walking. Vaults aren't built yet.</p>
+    </section>
+  </aside>
+</div>
+
+<script>/*__GEARS_CORE__*/</script>
+<script>
+(() => {
+  "use strict";
+  const G = window.GearsCore;
+  const DT = 1 / 60;
+  const cvs = document.getElementById("floor");
+  const ctx = cvs.getContext("2d");
+  const $ = (id) => document.getElementById(id);
+
+  // ---------------------------------------------------------------- levels
+  // Walls: a → b along the ground; normal points to the cover side (where you crouch).
+  const W = (ax, ay, bx, by, nx, ny, h = "Mid") => ({ a: G.V(ax, ay), b: G.V(bx, by), normal: G.V(nx, ny), height: h });
+  const LEVELS = {
+    lane: { start: G.V(-420, 0), yaw: 0, walls: [
+      W(-100, -250, -100, 250, -1, 0), W(250, -250, 250, 250, -1, 0),
+      W(600, -250, 600, 250, -1, 0), W(250, 450, 600, 450, 0, -1, "Standing"),
+      W(-100, -450, 250, -450, 0, 1),
+    ]},
+    edges: { start: G.V(-400, -120), yaw: 0, walls: [
+      W(-150, -200, -150, -40, -1, 0), W(-150, 60, -150, 220, -1, 0),
+      W(150, -320, 150, -160, -1, 0), W(150, -20, 150, 140, -1, 0),
+      W(450, -200, 450, -40, -1, 0), W(450, 60, 450, 220, -1, 0),
+      W(750, -120, 750, 40, -1, 0, "Standing"),
+    ]},
+    yard: { start: G.V(-500, -300), yaw: 0, walls: [
+      W(-200, -400, -200, -150, -1, 0), W(0, 100, 260, 260, -0.524, 0.852),
+      W(250, -350, 450, -150, -0.707, 0.707), W(500, 200, 500, 450, -1, 0, "Standing"),
+      W(-300, 350, -50, 350, 0, -1), W(700, -250, 700, 0, -1, 0),
+    ]},
+  };
+  let levelKey = "lane", world, ch, trail = [], lastEvent = 0, stateSince = 0, showReach = true;
+
+  function load(key) {
+    levelKey = key;
+    const L = LEVELS[key];
+    world = new G.WallWorld(L.walls.map((w) => ({ ...w, normal: G.V(w.normal.x, w.normal.y) })));
+    ch = new G.Character(G.defaultConfig(), G.V(L.start.x, L.start.y), L.yaw);
+    trail = []; lastEvent = 0; stateSince = 0;
+    $("log").innerHTML = "";
+    $("st-reason").textContent = "Tap A toward a wall to slide into cover.";
+    for (const k of Object.keys(LEVELS)) $("lv-" + k).setAttribute("aria-pressed", String(k === key));
+    cam.x = ch.pos.x; cam.y = ch.pos.y;
+  }
+
+  // ----------------------------------------------------------------- input
+  const keys = new Set();
+  addEventListener("keydown", (e) => {
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+    if (e.code === "KeyR") load(levelKey);
+    keys.add(e.code);
+  });
+  addEventListener("keyup", (e) => keys.delete(e.code));
+  addEventListener("blur", () => keys.clear());
+
+  const touchState = { x: 0, y: 0, a: false, active: false };
+  function setupTouch() {
+    if (!matchMedia("(pointer: coarse)").matches) return;
+    $("touch").hidden = false;
+    const ts = $("tstick"), ta = $("ta");
+    const move = (e) => {
+      const r = ts.getBoundingClientRect();
+      const dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      const dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      const m = Math.hypot(dx, dy), k = m > 1 ? 1 / m : 1;
+      touchState.x = dx * k; touchState.y = -dy * k; touchState.active = true;
+    };
+    ts.addEventListener("pointerdown", (e) => { ts.setPointerCapture(e.pointerId); move(e); });
+    ts.addEventListener("pointermove", (e) => { if (ts.hasPointerCapture(e.pointerId)) move(e); });
+    const end = () => { touchState.x = 0; touchState.y = 0; };
+    ts.addEventListener("pointerup", end); ts.addEventListener("pointercancel", end);
+    ta.addEventListener("pointerdown", (e) => { e.preventDefault(); touchState.a = true; touchState.active = true; ta.classList.add("on"); });
+    const up = () => { touchState.a = false; ta.classList.remove("on"); };
+    ta.addEventListener("pointerup", up); ta.addEventListener("pointercancel", up); ta.addEventListener("pointerleave", up);
+  }
+
+  function readInput() {
+    // Gamepad first (standard mapping: axes 0/1 = left stick, button 0 = A).
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const p of pads) {
+      if (!p || !p.connected) continue;
+      const x = p.axes[0] || 0, y = -(p.axes[1] || 0);
+      const a = !!(p.buttons[0] && p.buttons[0].pressed);
+      return { stick_x: clamp(x), stick_y: clamp(y), cam_yaw: 0, a, src: "Controller" };
+    }
+    if (touchState.active) return { stick_x: touchState.x, stick_y: touchState.y, cam_yaw: 0, a: touchState.a, src: "Touch" };
+    let x = 0, y = 0;
+    if (keys.has("KeyW") || keys.has("ArrowUp")) y += 1;
+    if (keys.has("KeyS") || keys.has("ArrowDown")) y -= 1;
+    if (keys.has("KeyD") || keys.has("ArrowRight")) x += 1;
+    if (keys.has("KeyA") || keys.has("ArrowLeft")) x -= 1;
+    const m = Math.hypot(x, y);
+    if (m > 1) { x /= m; y /= m; }
+    return { stick_x: x, stick_y: y, cam_yaw: 0, a: keys.has("Space"), src: "Keyboard" };
+  }
+  const clamp = (v) => Math.max(-1, Math.min(1, v));
+
+  // Host-side wall push-out (the core doesn't sweep collision yet).
+  function pushOut() {
+    if (ch.active && (ch.active.kind === "Run2Cover")) return;
+    const r = 30;
+    for (const w of world.walls) {
+      const seg = { x: w.b.x - w.a.x, y: w.b.y - w.a.y };
+      const L2 = seg.x * seg.x + seg.y * seg.y;
+      let t = ((ch.pos.x - w.a.x) * seg.x + (ch.pos.y - w.a.y) * seg.y) / L2;
+      t = Math.max(0, Math.min(1, t));
+      const px = w.a.x + seg.x * t, py = w.a.y + seg.y * t;
+      const dx = ch.pos.x - px, dy = ch.pos.y - py, d = Math.hypot(dx, dy);
+      if (d < r && d > 1e-6) { ch.pos = G.V(px + (dx / d) * r, py + (dy / d) * r, 0); }
+    }
+  }
+
+  // ---------------------------------------------------------------- render
+  const cam = { x: 0, y: 0 };
+  let dpr = 1, vw = 0, vh = 0;
+  const SCALE = 0.55; // px per uu at zoom 1
+  function resize() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    const r = cvs.getBoundingClientRect();
+    vw = r.width; vh = r.height;
+    cvs.width = Math.round(vw * dpr); cvs.height = Math.round(vh * dpr);
+  }
+  addEventListener("resize", resize);
+  const zoom = () => (vw < 520 ? 0.75 : 1) * SCALE;
+  // World X forward = screen up; world Y right = screen right.
+  const sx = (p) => vw / 2 + (p.y - cam.y) * zoom();
+  const sy = (p) => vh / 2 - (p.x - cam.x) * zoom();
+
+  const STATE_COLOR = {
+    Walk: "--cool", InCover: "--good", CoverRun: "--good", RoadieRun: "--cover-edge",
+    Run2Cover: "--hot", CoverSlip: "--hot", PushOut: "--hot", SwatTurn: "--hot", Vault: "--hot", EvadeFwd: "--hot", EvadeBwd: "--hot", EvadeLt: "--hot", EvadeRt: "--hot",
+  };
+  const css = getComputedStyle(document.documentElement);
+  const tok = (n) => css.getPropertyValue(n).trim();
+
+  function drawGrid() {
+    const z = zoom();
+    const step = 100;
+    const x0 = cam.x - vh / 2 / z, x1 = cam.x + vh / 2 / z;
+    const y0 = cam.y - vw / 2 / z, y1 = cam.y + vw / 2 / z;
+    ctx.lineWidth = 1;
+    for (let gx = Math.floor(x0 / step) * step; gx <= x1; gx += step) {
+      ctx.strokeStyle = gx % 500 === 0 ? tok("--floor-grid-major") : tok("--floor-grid");
+      const y = sy({ x: gx, y: 0 });
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(vw, y); ctx.stroke();
+    }
+    for (let gy = Math.floor(y0 / step) * step; gy <= y1; gy += step) {
+      ctx.strokeStyle = gy % 500 === 0 ? tok("--floor-grid-major") : tok("--floor-grid");
+      const x = sx({ x: 0, y: gy });
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, vh); ctx.stroke();
+    }
+  }
+
+  function drawWalls() {
+    const z = zoom();
+    for (const w of world.walls) {
+      const n = w.normal;
+      const thick = (w.height === "Standing" ? 28 : 20);
+      // body of the wall, extruded away from the cover side
+      const a = w.a, b = w.b, back = { x: -n.x * thick, y: -n.y * thick };
+      ctx.fillStyle = tok("--wall");
+      ctx.globalAlpha = w.height === "Standing" ? 1 : 0.75;
+      ctx.beginPath();
+      ctx.moveTo(sx(a), sy(a)); ctx.lineTo(sx(b), sy(b));
+      ctx.lineTo(sx({ x: b.x + back.x, y: b.y + back.y }), sy({ x: b.x + back.x, y: b.y + back.y }));
+      ctx.lineTo(sx({ x: a.x + back.x, y: a.y + back.y }), sy({ x: a.x + back.x, y: a.y + back.y }));
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      // cover face: amber paint line + edge ticks
+      ctx.strokeStyle = tok("--cover-edge"); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sx(a), sy(a)); ctx.lineTo(sx(b), sy(b)); ctx.stroke();
+      ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+      ctx.globalAlpha = 0.5;
+      for (const e of [a, b]) {
+        const o = { x: e.x + n.x * 34, y: e.y + n.y * 34 };
+        ctx.beginPath(); ctx.moveTo(sx(e), sy(e)); ctx.lineTo(sx(o), sy(o)); ctx.stroke();
+      }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      if (z > 0.3) {
+        ctx.fillStyle = tok("--ink-dim");
+        ctx.font = "500 10px " + tok("--font-mono");
+        const off = thick + 30 / z;
+        const mid = { x: (a.x + b.x) / 2 - n.x * off, y: (a.y + b.y) / 2 - n.y * off };
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(w.height === "Standing" ? "FULL" : "WAIST", sx(mid), sy(mid));
+      }
+    }
+  }
+
+  // Preview what a tap of A would do right now (same rule as the core's CanRunToCover).
+  function drawReach(input) {
+    if (!showReach || ch.active || ch.cover) return;
+    const cfg = ch.cfg, dz = cfg.dead_zone;
+    const m = Math.hypot(input.stick_x, input.stick_y);
+    let dir, side = false;
+    if (m > dz) {
+      if (Math.abs(input.stick_x) > Math.abs(input.stick_y)) side = true;
+      else if (input.stick_y < -dz) return;
+      dir = { x: input.stick_y / m, y: input.stick_x / m, z: 0 };
+    } else dir = { x: Math.cos(ch.yaw), y: Math.sin(ch.yaw), z: 0 };
+    const reach = side ? cfg.run2cover_side_max_dist : cfg.run2cover_max_dist;
+    const end = { x: ch.pos.x + dir.x * reach, y: ch.pos.y + dir.y * reach };
+    const spot = world.findCover(ch.pos, dir, reach);
+    ctx.strokeStyle = spot ? tok("--hot") : tok("--ink-dim");
+    ctx.globalAlpha = spot ? 0.9 : 0.35;
+    ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5;
+    const tgt = spot ? spot.location : end;
+    ctx.beginPath(); ctx.moveTo(sx(ch.pos), sy(ch.pos)); ctx.lineTo(sx(tgt), sy(tgt)); ctx.stroke();
+    ctx.setLineDash([]);
+    if (spot) {
+      ctx.beginPath(); ctx.arc(sx(spot.location), sy(spot.location), 7, 0, Math.PI * 2); ctx.stroke();
+      const d = Math.hypot(spot.location.x - ch.pos.x, spot.location.y - ch.pos.y);
+      const t = Math.max(d / (cfg.ground_speed * cfg.run2cover_speed_mod), cfg.run2cover_min_duration);
+      ctx.fillStyle = tok("--hot"); ctx.globalAlpha = 1;
+      ctx.font = "500 11px " + tok("--font-mono"); ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      ctx.fillText(`${Math.round(d)} uu · ${t.toFixed(2)} s`, sx(spot.location) + 10, sy(spot.location) - 4);
+    } else {
+      ctx.fillStyle = tok("--ink-dim"); ctx.font = "400 10px " + tok("--font-mono");
+      ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      ctx.fillText(`${reach} uu`, sx(end) + 6, sy(end) - 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawTrail() {
+    for (let i = 1; i < trail.length; i++) {
+      const p = trail[i - 1], q = trail[i];
+      ctx.strokeStyle = tok(STATE_COLOR[q.s] || "--cool");
+      ctx.globalAlpha = 0.15 + 0.6 * (i / trail.length);
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(sx(p), sy(p)); ctx.lineTo(sx(q), sy(q)); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawCharacter() {
+    const p = ch.pos, r = 34 * zoom();
+    const col = tok(STATE_COLOR[ch.stateName()] || "--cool");
+    ctx.fillStyle = tok("--floor");
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(sx(p), sy(p), r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // facing wedge
+    const f = { x: Math.cos(ch.yaw), y: Math.sin(ch.yaw) };
+    const tip = { x: p.x + f.x * 34, y: p.y + f.y * 34 };
+    const l = { x: p.x + Math.cos(ch.yaw + 2.5) * 20, y: p.y + Math.sin(ch.yaw + 2.5) * 20 };
+    const rr = { x: p.x + Math.cos(ch.yaw - 2.5) * 20, y: p.y + Math.sin(ch.yaw - 2.5) * 20 };
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(sx(tip), sy(tip)); ctx.lineTo(sx(l), sy(l)); ctx.lineTo(sx(rr), sy(rr)); ctx.closePath(); ctx.fill();
+    if (ch.cover) {
+      const side = ch.mirrored ? "◂ left" : "right ▸";
+      ctx.fillStyle = tok("--good"); ctx.font = "500 10px " + tok("--font-mono");
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.fillText(`facing ${side}`, sx(p), sy(p) + r + 6);
+    }
+  }
+
+  // ------------------------------------------------------------------- HUD
+  const logEl = $("log");
+  function hud(input) {
+    const name = ch.stateName();
+    $("st-name").textContent = name;
+    $("st-name").style.color = tok(STATE_COLOR[name] || "--cool");
+    $("st-time").textContent = `${(ch.time - stateSince).toFixed(2)} s`;
+    const v = ch.active && ["Run2Cover", "CoverSlip", "SwatTurn"].includes(ch.active.kind) || (ch.active && ch.active.kind.startsWith("Evade"))
+      ? (ch.active.duration > 0 ? Math.hypot(ch.active.target.x - ch.active.start.x, ch.active.target.y - ch.active.start.y) / ch.active.duration : 0)
+      : G.len2d(ch.vel);
+    $("spd").textContent = Math.round(v);
+    const fill = $("spd-fill");
+    fill.style.width = Math.min(100, (v / 720) * 100) + "%";
+    fill.style.background = tok(STATE_COLOR[name] || "--cool");
+    const dot = $("stick-dot");
+    dot.style.left = 50 + input.stick_x * 42 + "%";
+    dot.style.top = 50 - input.stick_y * 42 + "%";
+    $("a-ind").classList.toggle("on", input.a);
+    $("src").textContent = input.src;
+    while (lastEvent < ch.events.length) {
+      const e = ch.events[lastEvent++];
+      stateSince = e.time;
+      $("st-reason").textContent = e.reason;
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${e.time.toFixed(3)}</span><span><b>${e.to}</b> ← ${e.from} · ${e.reason}</span>`;
+      logEl.prepend(li);
+      while (logEl.children.length > 14) logEl.lastChild.remove();
+    }
+  }
+
+  // ------------------------------------------------------------------ loop
+  let acc = 0, last = performance.now(), lastInput = readInput();
+  function frame(now) {
+    acc += Math.min(0.1, (now - last) / 1000); last = now;
+    while (acc >= DT) {
+      lastInput = readInput();
+      ch.tick(lastInput, DT, world);
+      pushOut();
+      trail.push({ x: ch.pos.x, y: ch.pos.y, s: ch.stateName() });
+      if (trail.length > 240) trail.shift();
+      acc -= DT;
+    }
+    cam.x += (ch.pos.x - cam.x) * 0.12; cam.y += (ch.pos.y - cam.y) * 0.12;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = tok("--floor"); ctx.fillRect(0, 0, vw, vh);
+    drawGrid(); drawWalls(); drawReach(lastInput); drawTrail(); drawCharacter();
+    hud(lastInput);
+    requestAnimationFrame(frame);
+  }
+
+  for (const k of Object.keys(LEVELS)) $("lv-" + k).addEventListener("click", (e) => { load(k); e.currentTarget.blur(); });
+  $("btn-reset").addEventListener("click", (e) => { load(levelKey); e.currentTarget.blur(); });
+  $("btn-reach").addEventListener("click", (e) => {
+    showReach = !showReach; e.currentTarget.setAttribute("aria-pressed", String(showReach)); e.currentTarget.blur();
+  });
+
+  resize(); setupTouch(); load("lane");
+  requestAnimationFrame(frame);
+})();
+</script>

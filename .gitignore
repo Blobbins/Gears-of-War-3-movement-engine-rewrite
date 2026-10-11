@@ -1,0 +1,68 @@
+# Whitelist .gitignore: ignore everything, then allow only our own source.
+# Never switch this to a normal ignore list (see AGENTS.md rule 3).
+# Game files, Mod Tools files, Gears exports and build output live in _local/ and stay ignored.
+
+*
+!*/
+
+# Project docs and rules
+!/.gitignore
+!/AGENTS.md
+!/README.md
+!/MODLOG.md
+!/HANDOFF.md
+!/STATUS.md
+!/LICENSE
+!/NOTICE
+!/docs/*.md
+
+# The repo is the movement engine only (2026-10-11): the parked WaW mod (src/, patches/,
+# tools/build.py) and game ports (ports/) stay local and untracked.
+
+# Rust workspace (sources only; build output stays out)
+!/Cargo.toml
+!/Cargo.lock
+!/rustfmt.toml
+!/crates/*/Cargo.toml
+!/crates/**/*.rs
+
+# Desktop range (Bevy app, its own workspace)
+!/game/Cargo.toml
+!/game/src/*.rs
+
+# C API header and example host
+!/include/*.h
+!/examples/*.c
+
+# Browser sandbox sources (web/dist is generated)
+!/web/*.js
+!/web/*.html
+
+# Our tools
+!/tools/*.js
+!/tools/*.py
+!/tools/*.bat
+!/tools/*.ps1
+!/tools/*.md
+
+# Always ignored, even if a rule above would match
+/_local/
+/tools/build.py
+/target/
+/ports/*/lib/
+/ports/*/build/
+/ports/*/.xmake/
+*.ff
+*.iwd
+*.xxx
+*.upk
+*.tfc
+*.xex
+*.iso
+*.psk
+*.psa
+*.xmodel*
+*.xanim*
+*.glb
+*.gltf
+*.bin

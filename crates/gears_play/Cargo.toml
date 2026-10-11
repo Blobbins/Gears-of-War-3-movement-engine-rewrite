@@ -1,0 +1,9 @@
+[package]
+name = "gears_play"
+description = "Engine-free game layer for libgears: camera, animation driver, combat, level, sound cues."
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+gears_core = { path = "../gears_core" }

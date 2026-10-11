@@ -1,0 +1,8 @@
+[package]
+name = "gears_core"
+description = "Gears of War 3 style third-person movement (clean reimplementation). Engine-free and deterministic."
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]

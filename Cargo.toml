@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/gears_core", "crates/gears_cli", "crates/gears_ffi", "crates/gears_play"]
+exclude = ["game"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+version = "0.0.1"
+
+[profile.release]
+debug = 1

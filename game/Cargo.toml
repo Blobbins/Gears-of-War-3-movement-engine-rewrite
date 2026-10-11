@@ -1,0 +1,20 @@
+[package]
+name = "gears_game"
+description = "libgears desktop range: Gears of War 3 movement, animation and shooting in a native window (Bevy)."
+edition = "2021"
+license = "MIT"
+version = "0.0.1"
+
+# A standalone workspace: the main workspace (repo root) stays dependency-free.
+[workspace]
+
+[dependencies]
+bevy = { version = "0.15.3", features = ["mp3", "jpeg"] }
+gears_core = { path = "../crates/gears_core" }
+gears_play = { path = "../crates/gears_play" }
+
+# Bevy is slow unoptimised; keep our code debuggable and the engine fast.
+[profile.dev]
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 3
